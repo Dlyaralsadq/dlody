@@ -52,19 +52,23 @@ export default function PatientMapView({
   const [userPos, setUserPos] = useState<[number, number] | null>(null);
   const [locating, setLocating] = useState(false);
 
-  // Build map once
+  // Build map once (guard against React Strict Mode double-mount)
   useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
-    if ((containerRef.current as any)._leaflet_id) return;
+    const container = containerRef.current;
+    if (!container) return;
 
-    let L: any;
-    let map: any;
+    let cancelled = false;
 
     (async () => {
-      L = await import("leaflet");
+      const L = await import("leaflet");
       await import("leaflet/dist/leaflet.css" as any);
 
-      map = L.map(containerRef.current, {
+      if (cancelled || !containerRef.current || mapRef.current) return;
+
+      const el = containerRef.current;
+      if ((el as HTMLElement & { _leaflet_id?: number })._leaflet_id) return;
+
+      const map = L.map(el, {
         center: IRAQ_CENTER,
         zoom: IRAQ_ZOOM,
         zoomControl: false,
@@ -76,16 +80,29 @@ export default function PatientMapView({
         maxZoom: 18,
       }).addTo(map);
 
-      // Custom zoom control position
       L.control.zoom({ position: "bottomright" }).addTo(map);
+
+      if (cancelled) {
+        map.remove();
+        return;
+      }
 
       mapRef.current = map;
       renderMarkers(L, map);
     })();
 
     return () => {
-      if (map) map.remove();
-      mapRef.current = null;
+      cancelled = true;
+      markersRef.current.forEach((m) => m.remove());
+      markersRef.current = [];
+      if (areaCircleRef.current) {
+        areaCircleRef.current.remove();
+        areaCircleRef.current = null;
+      }
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -245,13 +262,6 @@ export default function PatientMapView({
         )}
         {ar ? "موقعي" : "My location"}
       </button>
-
-      {/* Doctor count */}
-      <div className="absolute top-4 end-4 z-[1000] rounded-xl border border-white/10 bg-[#060912]/85 backdrop-blur px-3 py-2 text-xs text-white/60">
-        {doctors.length > 0
-          ? `${doctors.length} ${ar ? "طبيب" : "doctors"}`
-          : ar ? "لا توجد نتائج" : "No results"}
-      </div>
 
       {/* Legend */}
       <div className="absolute bottom-36 start-3 z-[1000] rounded-xl border border-white/10 bg-[#060912]/85 backdrop-blur p-2.5 text-[10px] text-white/50 space-y-1.5">

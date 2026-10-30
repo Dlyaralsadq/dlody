@@ -17,12 +17,17 @@ export default function DoctorLocationMap({
   const mapRef = useRef<any>(null);
 
   useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
-    if ((containerRef.current as any)._leaflet_id) return;
+    const container = containerRef.current;
+    if (!container) return;
+
+    let cancelled = false;
 
     (async () => {
       const L = await import("leaflet");
       await import("leaflet/dist/leaflet.css" as any);
+
+      if (cancelled || !containerRef.current || mapRef.current) return;
+      if ((containerRef.current as HTMLElement & { _leaflet_id?: number })._leaflet_id) return;
 
       const map = L.map(containerRef.current!, {
         center: [lat, lng],
@@ -63,12 +68,20 @@ export default function DoctorLocationMap({
         .bindPopup(`<b>${name}</b>`)
         .openPopup();
 
+      if (cancelled) {
+        map.remove();
+        return;
+      }
+
       mapRef.current = map;
     })();
 
     return () => {
-      mapRef.current?.remove();
-      mapRef.current = null;
+      cancelled = true;
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
     };
   }, [lat, lng, name]);
 

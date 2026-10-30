@@ -1,4 +1,4 @@
-import { getSession } from "@/lib/auth";
+import { getSession, getAuthenticatedRedirectPath, clearSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import LoginForm from "./LoginForm";
@@ -6,7 +6,11 @@ import LoginForm from "./LoginForm";
 export default async function LoginPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   const session = await getSession();
-  if (session) redirect(`/${locale}/${session.role === "doctor" ? "doctor" : session.role === "secretary" ? "secretary" : "admin"}`);
+  if (session) {
+    const dest = await getAuthenticatedRedirectPath(session, locale);
+    if (dest) redirect(dest);
+    await clearSession();
+  }
 
   const ar = locale === "ar";
 
@@ -55,6 +59,12 @@ export default async function LoginPage({ params }: { params: Promise<{ locale: 
           {ar ? "طبيب جديد؟ " : "New doctor? "}
           <Link href={`/${locale}/register`} className="text-indigo-400 hover:underline font-semibold">
             {ar ? "سجّل حسابك مجاناً" : "Create your free account"}
+          </Link>
+        </p>
+
+        <p className="text-center mt-4">
+          <Link href={`/${locale}`} className="text-xs text-white/40 hover:text-white/70 inline-flex items-center gap-1">
+            ← {ar ? "العودة للصفحة الرئيسية" : "Back to home"}
           </Link>
         </p>
 

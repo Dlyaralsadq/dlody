@@ -165,7 +165,6 @@ export default function RecurringPatientsClient({ patients, doctorId, locale, to
 
   const treatmentOpts = (treatmentTypes ?? TREATMENT_TYPES).map(t => ({ value: t.value, label: ar ? t.labelAr : t.labelEn }));
   const weekOpts = [1,2,3,4,5,6,8,10,12].map(w => ({ value: String(w), label: `${w} ${ar ? "أسبوع" : "weeks"}` }));
-  const [useCustomType, setUseCustomType] = useState(false);
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -232,26 +231,9 @@ export default function RecurringPatientsClient({ patients, doctorId, locale, to
               <span className="text-white/30 mx-2">·</span>
               <span className="text-white/40">{selected.phone}</span>
             </div>
-            {!useCustomType ? (
-              <div className="space-y-2">
-                <Select name="treatmentType" label={ar ? "نوع العلاج" : "Treatment Type"}
-                  options={treatmentOpts} defaultValue={selected.treatmentType ?? ""}
-                  placeholder={ar ? "اختر نوع العلاج" : "Select treatment"} />
-                <button type="button" onClick={() => setUseCustomType(true)}
-                  className="text-xs text-indigo-400 hover:text-indigo-300">
-                  + {ar ? "إضافة نوع علاج مخصص" : "Add custom treatment type"}
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <Input name="treatmentType" label={ar ? "نوع العلاج المخصص" : "Custom Treatment Type"}
-                  placeholder={ar ? "مثال: علاج خاص بالطبيب..." : "e.g. Custom therapy..."} defaultValue="" required />
-                <button type="button" onClick={() => setUseCustomType(false)}
-                  className="text-xs text-slate-500 hover:text-slate-400">
-                  {ar ? "← اختر من القائمة" : "← Pick from list"}
-                </button>
-              </div>
-            )}
+            <Select name="treatmentType" label={ar ? "نوع العلاج" : "Treatment Type"}
+              options={treatmentOpts} defaultValue={selected.treatmentType ?? ""}
+              placeholder={ar ? "اختر نوع العلاج" : "Select treatment"} />
             <div className="grid grid-cols-2 gap-3">
               <Input name="totalSessions" type="number" min="1" label={ar ? "عدد الجلسات الإجمالي" : "Total Sessions"}
                 defaultValue={selected.totalSessions?.toString() ?? ""} />

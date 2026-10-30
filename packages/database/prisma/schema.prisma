@@ -9,15 +9,18 @@ datasource db {
 }
 
 model User {
-  id              String   @id @default(cuid())
-  username        String   @unique
+  id              String    @id @default(cuid())
+  username        String    @unique
   password        String
   name            String
-  role            String   @default("admin")
-  isActive        Boolean  @default(true)
+  role            String    @default("admin")
+  isActive        Boolean   @default(true)
   linkedDoctorId  String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  gender          String?
+  dateOfBirth     DateTime?
+  bloodType       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
   doctor          Doctor?
 }
 
@@ -56,6 +59,7 @@ model Doctor {
   clinicLat         Float?
   clinicLng         Float?
   clinicAddress     String?
+  customTreatmentTypes String?
   isActive          Boolean   @default(true)
   userId            String?   @unique
   user              User?     @relation(fields: [userId], references: [id])
@@ -121,6 +125,15 @@ model Appointment {
   editNote          String?
   source            String   @default("manual")  // "manual" | "online"
   patientPhone      String?
+  patientAge        Int?
+  patientGender     String?
+  patientBloodType  String?
+  bookedForName     String?
+  bookingForSelf    Boolean  @default(true)
+  deletedBy         String?
+  deletedByRole     String?
+  deletedAt         DateTime?
+  deleteNote        String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 }

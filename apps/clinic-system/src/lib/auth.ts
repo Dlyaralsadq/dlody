@@ -40,6 +40,30 @@ export async function getSession(): Promise<Session | null> {
   }
 }
 
+export async function clearSession(): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.delete(SESSION_COOKIE);
+}
+
+/** Returns redirect path for a valid session, or null if cookie is stale/invalid. */
+export async function getAuthenticatedRedirectPath(session: Session, locale: string): Promise<string | null> {
+  if (session.role === "admin") return `/${locale}/admin`;
+  if (session.role === "secretary") {
+    const user = await prisma.user.findUnique({ where: { id: session.userId }, select: { linkedDoctorId: true } });
+    if (!user?.linkedDoctorId) return null;
+    return `/${locale}/secretary`;
+  }
+  if (session.role === "doctor") {
+    const doctor = await prisma.doctor.findUnique({ where: { userId: session.userId }, select: { id: true } });
+    if (!doctor) return null;
+    return `/${locale}/doctor`;
+  }
+  if (session.role === "patient") {
+    return `/${locale}/patient/account`;
+  }
+  return null;
+}
+
 export async function requireAuth(locale: string = "ar"): Promise<Session> {
   const session = await getSession();
   if (!session) redirect(`/${locale}/login`);

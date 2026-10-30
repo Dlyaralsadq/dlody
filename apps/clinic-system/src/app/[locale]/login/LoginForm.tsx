@@ -16,7 +16,13 @@ export default function LoginForm({ locale }: { locale: string }) {
     setError(""); setLoading(true);
     const result = await loginAction(new FormData(e.currentTarget));
     if (result.success) {
-      router.push(`/${locale}/${result.role === "doctor" ? "doctor" : result.role === "secretary" ? "secretary" : "admin"}`);
+      const role = result.role;
+      const dest =
+        role === "doctor" ? "doctor"
+        : role === "secretary" ? "secretary"
+        : role === "patient" ? "patient/account"
+        : "admin";
+      router.push(`/${locale}/${dest}`);
       router.refresh();
     } else {
       setError(ar ? "اسم المستخدم أو كلمة المرور غير صحيحة" : "Invalid username or password");

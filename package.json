@@ -8,12 +8,17 @@
   ],
   "scripts": {
     "dev": "npm run dev -w @iraq-clinic/clinic-system",
+    "dev:local": "npm run dev:local -w @iraq-clinic/clinic-system",
+    "local": "node scripts/local-start.js",
+    "setup": "npm install && npm run db:generate && npm run db:deploy && npm run db:seed",
     "build": "npm run db:generate && npm run build -w @iraq-clinic/clinic-system",
     "start": "npm run start -w @iraq-clinic/clinic-system",
     "lint": "npm run lint -w @iraq-clinic/clinic-system",
     "db:generate": "npm run db:generate -w @iraq-clinic/database",
+    "db:deploy": "npm run db:deploy -w @iraq-clinic/database",
     "db:migrate": "npm run db:migrate -w @iraq-clinic/database",
     "db:seed": "npm run db:seed -w @iraq-clinic/database",
+    "db:seed-check": "npm run db:seed-check -w @iraq-clinic/database",
     "db:studio": "npm run db:studio -w @iraq-clinic/database",
     "db:reset": "npm run db:reset -w @iraq-clinic/database"
   }

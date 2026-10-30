@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth";
+import { getSession, getAuthenticatedRedirectPath, clearSession } from "@/lib/auth";
 import Link from "next/link";
 import { Stethoscope, User } from "lucide-react";
 
@@ -12,9 +12,9 @@ export default async function LocaleRootPage({
   const session = await getSession();
 
   if (session) {
-    if (session.role === "doctor") redirect(`/${locale}/doctor`);
-    if (session.role === "secretary") redirect(`/${locale}/secretary`);
-    if (session.role === "admin") redirect(`/${locale}/admin`);
+    const dest = await getAuthenticatedRedirectPath(session, locale);
+    if (dest) redirect(dest);
+    await clearSession();
   }
 
   const ar = locale === "ar";

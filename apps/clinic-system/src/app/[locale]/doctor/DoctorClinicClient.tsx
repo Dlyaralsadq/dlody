@@ -34,8 +34,8 @@ const typeLabel = (type: string, ar: boolean) => ({
   procedure: ar ? "إجراء" : "Procedure",
 }[type] ?? type);
 
-export default function DoctorClinicClient({ doctor, queue, locale, specialtyConfig }: {
-  doctor: any; queue: Appointment[]; locale: string;
+export default function DoctorClinicClient({ doctor, queue, deletedBySecretary = [], locale, specialtyConfig }: {
+  doctor: any; queue: Appointment[]; deletedBySecretary?: any[]; locale: string;
   specialtyConfig?: SpecialtyConfig;
 }) {
   const router = useRouter();
@@ -80,6 +80,20 @@ export default function DoctorClinicClient({ doctor, queue, locale, specialtyCon
 
   return (
     <div className="space-y-4">
+
+      {deletedBySecretary.length > 0 && (
+        <div className="rounded-2xl border border-rose-500/25 bg-rose-500/10 p-4 space-y-2">
+          <p className="text-sm font-semibold text-rose-300">
+            {ar ? "مواعيد حذفها السكرتير اليوم" : "Appointments deleted by secretary today"}
+          </p>
+          {deletedBySecretary.map((apt: any) => (
+            <div key={apt.id} className="text-xs text-rose-200/80 flex justify-between gap-2">
+              <span>{apt.patient?.name} · {apt.appointmentNumber}</span>
+              <span className="text-rose-300/60">{apt.deleteNote}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Doctor banner */}
       <div className="rounded-2xl overflow-hidden border border-indigo-500/15">

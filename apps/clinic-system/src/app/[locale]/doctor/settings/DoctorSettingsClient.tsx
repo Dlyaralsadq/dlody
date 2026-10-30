@@ -8,7 +8,7 @@ import {
   Camera, Check, Loader2, AlertCircle, ChevronDown, UserPlus, Trash2
 } from "lucide-react";
 import { arabicToEnglish } from "@/lib/transliterate";
-import { createSecretaryForDoctor, getSecretariesForDoctorPortal } from "@/app/actions/doctorPortal";
+import { createSecretaryForDoctor, getSecretariesForDoctorPortal, updateDoctorSettings } from "@/app/actions/doctorPortal";
 
 const MapPicker = dynamic(() => import("@/components/ui/MapPicker"), { ssr: false });
 
@@ -111,42 +111,35 @@ export default function DoctorSettingsClient({
     setError("");
     try {
       const payload: Record<string, unknown> = {
-        doctorId: doctor.id,
+        name: name || null,
+        nameAr: nameAr || null,
+        bio: bio || null,
+        bioAr: bioAr || null,
         specialtyId,
+        phone: phone || null,
+        email: email || null,
+        licenseNumber: license || null,
+        experienceYears: exp ? parseInt(exp) : null,
+        consultationFee: fee ? parseFloat(fee) : null,
+        workingDays: days || null,
+        workingHoursStart: from || null,
+        workingHoursEnd: to || null,
+        clinicAddress: mapData.address || null,
+        clinicLat: mapData.lat ?? null,
+        clinicLng: mapData.lng ?? null,
       };
-      if (name)    payload.name = name;
-      if (nameAr)  payload.nameAr = nameAr;
-      payload.bio  = bio  || null;
-      payload.bioAr= bioAr|| null;
-      payload.phone= phone|| null;
-      payload.email= email|| null;
-      payload.licenseNumber = license || null;
-      payload.experienceYears   = exp  ? parseInt(exp)    : null;
-      payload.consultationFee   = fee  ? parseFloat(fee)  : null;
-      payload.workingDays       = days || null;
-      payload.workingHoursStart = from || null;
-      payload.workingHoursEnd   = to   || null;
-      payload.clinicAddress     = mapData.address || null;
-      payload.clinicLat         = mapData.lat  ?? null;
-      payload.clinicLng         = mapData.lng  ?? null;
-      if (logo) payload.logoUrl = logo;
+      if (logo && logo.length < 400000) payload.logoUrl = logo;
 
-      const res = await fetch("/api/doctor/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify(payload),
-      });
+      const result = await updateDoctorSettings(doctor.id, payload);
 
-      if (res.ok) {
+      if (result.success) {
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
         router.refresh();
       } else {
-        const body = await res.json().catch(() => ({}));
-        setError(body.error ?? (ar ? "حدث خطأ أثناء الحفظ" : "An error occurred while saving"));
+        setError(ar ? "حدث خطأ أثناء الحفظ" : "An error occurred while saving");
       }
-    } catch (e) {
+    } catch {
       setError(ar ? "تعذّر الاتصال بالخادم" : "Could not reach the server");
     } finally {
       setSaving(false);

@@ -1,25 +1,43 @@
 {
   "name": "ClinicPro — طبيبك في العراق",
   "short_name": "ClinicPro",
-  "description": "ابحث عن طبيب، احجز موعدك، تواصل مع العيادة",
+  "description": "ابحث عن طبيب، احجز موعدك، تابع مواعيدك",
   "start_url": "/ar/patient",
+  "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
   "background_color": "#060912",
   "theme_color": "#6366f1",
-  "orientation": "portrait",
+  "orientation": "any",
   "lang": "ar",
   "dir": "rtl",
-  "categories": ["medical", "health"],
+  "categories": ["medical", "health", "lifestyle"],
   "icons": [
-    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
   ],
-  "screenshots": [],
   "shortcuts": [
     {
       "name": "بحث عن طبيب",
+      "short_name": "بحث",
       "url": "/ar/patient",
       "description": "ابحث عن طبيب حسب التخصص"
+    },
+    {
+      "name": "مواعيدي",
+      "short_name": "مواعيد",
+      "url": "/ar/patient/account",
+      "description": "عرض مواعيدك"
     }
   ]
 }

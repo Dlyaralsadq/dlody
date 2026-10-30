@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { MapPin, Clock, Banknote, Phone, Calendar, ArrowRight, Star, Navigation } from "lucide-react";
 import { getPublicDoctorById } from "@/lib/publicDoctors";
 import { getSpecialtyIcon, inferGovFromAddress } from "@/lib/iraq";
+import { requirePatient } from "@/lib/requirePatient";
 import { prisma } from "@/lib/prisma";
 import DoctorMapWrapper from "./DoctorMapWrapper";
 
@@ -19,6 +20,7 @@ export default async function PatientDoctorPage({
   params: Promise<{ locale: string; id: string }>;
 }) {
   const { locale, id } = await params;
+  await requirePatient(locale);
   const ar = locale === "ar";
   const doctor = await getPublicDoctorById(id);
   if (!doctor) notFound();

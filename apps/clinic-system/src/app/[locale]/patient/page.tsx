@@ -1,8 +1,11 @@
 import Link from "next/link";
+import { Home } from "lucide-react";
+import { requirePatient } from "@/lib/requirePatient";
 import { getPublicSpecialties, getListedDoctors } from "@/lib/publicDoctors";
 import { IRAQ_GOVERNORATES, getGovernorate, getDistrict, getSpecialtyIcon, inferGovFromAddress } from "@/lib/iraq";
 import MapWrapper from "./MapWrapper";
 import FilterBar from "./FilterBar";
+import PatientNavLinks from "./PatientNavLinks";
 import type { DoctorPin, FocusArea } from "./PatientMapView";
 
 export default async function PatientPage({
@@ -13,6 +16,7 @@ export default async function PatientPage({
   searchParams: Promise<{ specialty?: string; gov?: string; district?: string; q?: string }>;
 }) {
   const { locale } = await params;
+  await requirePatient(locale);
   const { specialty, gov, district, q } = await searchParams;
   const ar = locale === "ar";
   const otherLocale = ar ? "en" : "ar";
@@ -80,9 +84,11 @@ export default async function PatientPage({
             className="text-xs px-2.5 py-1.5 rounded-full border border-white/10 text-white/40 hover:text-white/70 transition">
             {ar ? "EN" : "AR"}
           </Link>
-          <Link href={`/${locale}/login`}
-            className="text-xs px-2.5 py-1.5 rounded-full border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 transition">
-            {ar ? "دخول الأطباء" : "Doctor login"}
+          <PatientNavLinks locale={locale} />
+          <Link href={`/${locale}`}
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-full border border-white/10 text-white/60 hover:text-white hover:bg-white/8 transition">
+            <Home size={13} />
+            {ar ? "الرئيسية" : "Home"}
           </Link>
         </div>
       </nav>

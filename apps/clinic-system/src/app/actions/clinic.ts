@@ -237,23 +237,33 @@ export async function getCompletedAppointments(doctorId: string) {
 }
 
 export async function getTodaySyncedQueue(doctorId: string) {
-  // Returns ALL active (non-completed) appointments
-  // Filtering by date happens on the UI side to avoid timezone issues
   return prisma.appointment.findMany({
-    where: { doctorId, status: { not: "completed" } },
+    where: { doctorId, status: { notIn: ["completed", "deleted"] } },
     include: { patient: true },
     orderBy: [{ queueNumber: "asc" }, { date: "asc" }],
   });
 }
 
 export async function getAllUpcomingAppointments(doctorId: string) {
-  // Returns ALL non-completed appointments ordered by date
   const start = new Date(); start.setHours(0, 0, 0, 0);
 
   return prisma.appointment.findMany({
-    where: { doctorId, date: { gte: start }, status: { not: "completed" } },
+    where: { doctorId, date: { gte: start }, status: { notIn: ["completed", "deleted"] } },
     include: { patient: true },
     orderBy: { date: "asc" },
+  });
+}
+
+export async function getSecretaryDeletedAppointments(doctorId: string) {
+  const start = new Date(); start.setHours(0, 0, 0, 0);
+  return prisma.appointment.findMany({
+    where: {
+      doctorId,
+      status: "deleted",
+      deletedAt: { gte: start },
+    },
+    include: { patient: true },
+    orderBy: { deletedAt: "desc" },
   });
 }
 
@@ -340,7 +350,22 @@ export async function secretaryDeleteAppointment(appointmentId: string, doctorId
   const apt = await prisma.appointment.findFirst({ where: { id: appointmentId, doctorId } });
   if (!apt) return { success: false };
 
-  await prisma.appointment.delete({ where: { id: appointmentId } });
+  const secretary = await prisma.user.findUnique({
+    where: { id: secretaryId },
+    select: { name: true },
+  });
+
+  await prisma.appointment.update({
+    where: { id: appointmentId },
+    data: {
+      status: "deleted",
+      deletedBy: secretaryId,
+      deletedByRole: "secretary",
+      deletedAt: new Date(),
+      deleteNote: `حذف بواسطة السكرتير: ${secretary?.name ?? "سكرتير"}`,
+    },
+  });
+
   revalidatePath("/[locale]/secretary", "page");
   revalidatePath("/[locale]/doctor", "page");
   return { success: true };

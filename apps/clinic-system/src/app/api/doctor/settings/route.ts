@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 
@@ -42,6 +43,10 @@ export async function PATCH(request: NextRequest) {
     where: { id: doctorId },
     data: allowed,
   });
+
+  revalidatePath("/[locale]/doctor/settings", "page");
+  revalidatePath("/[locale]/patient", "page");
+  revalidatePath("/[locale]/patient/doctor/[id]", "page");
 
   return NextResponse.json({ success: true });
 }
