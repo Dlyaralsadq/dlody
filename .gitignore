@@ -14,8 +14,15 @@
 /coverage
 
 # next.js
-/.next/
-/out/
+.next/
+out/
+apps/*/.next/
+
+# database
+packages/database/prisma/*.db
+packages/database/prisma/*.db-journal
+*.db
+*.db-journal
 
 # production
 /build
@@ -36,10 +43,8 @@ yarn-error.log*
 # vercel
 .vercel
 
-# typescript
 *.tsbuildinfo
 next-env.d.ts
-*.db
-*.db-journal
+apps/*/next-env.d.ts
 .env.local
 README.md.bak
