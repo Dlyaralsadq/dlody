@@ -188,44 +188,6 @@ export default function LoginForm({ locale }: { locale: string }) {
 
       </Button>
 
-
-
-      <div className="rounded-xl border border-app bg-app-hover p-4 space-y-2">
-
-        <p className="text-xs font-semibold text-app-3 uppercase tracking-wider">
-
-          {ar ? "حسابات تجريبية" : "Demo Accounts"}
-
-        </p>
-
-        <div className="space-y-1.5 text-xs">
-
-          {[
-
-            { role: ar ? "مدير" : "Admin", user: "admin", color: "text-indigo-400" },
-
-            { role: ar ? "طبيب" : "Doctor", user: "dr.ahmad", color: "text-violet-400" },
-
-          ].map(({ role, user, color }) => (
-
-            <div key={user} className="flex items-center gap-2">
-
-              <span className={`font-semibold ${color} w-16 shrink-0`}>{role}</span>
-
-              <code className="text-app-2">{user}</code>
-
-              <span className="text-app-3">/</span>
-
-              <code className="text-app-2">admin123</code>
-
-            </div>
-
-          ))}
-
-        </div>
-
-      </div>
-
     </form>
 
   );

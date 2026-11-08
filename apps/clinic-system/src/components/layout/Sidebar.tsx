@@ -24,6 +24,7 @@ export default function Sidebar({ locale, isOpen, onClose, role="admin", doctorS
         { href: `/${locale}/admin`, icon: ShieldCheck, label: ta("title"), exact: true },
         { href: `/${locale}/specialties`, icon: ClipboardList, label: tn("specialties") },
         { href: `/${locale}/admin/support`, icon: HeadphonesIcon, label: ar ? "دعم العملاء" : "Customer Support", badge: supportUnread || undefined },
+        { href: `/${locale}/admin/account`, icon: Settings, label: ar ? "الحساب" : "Account" },
       ],
     },
   ];
