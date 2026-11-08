@@ -29,9 +29,18 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 loadRootEnv(root);
 const schemaPath = path.join(root, "packages", "database", "prisma", "schema.prisma");
 const url = process.env.DATABASE_URL ?? "";
-const provider = url.startsWith("postgresql://") || url.startsWith("postgres://") ? "postgresql" : "sqlite";
+const provider = url.startsWith("postgresql://") || url.startsWith("postgres://")
+  ? "postgresql"
+  : url.startsWith("file:")
+    ? "sqlite"
+    : null;
 
 const text = fs.readFileSync(schemaPath, "utf8");
-const next = text.replace(/provider\s*=\s*"(sqlite|postgresql)"/, `provider = "${provider}"`);
-if (next !== text) fs.writeFileSync(schemaPath, next);
-console.log(`prisma provider: ${provider}`);
+if (!provider) {
+  const current = text.match(/provider\s*=\s*"(sqlite|postgresql)"/);
+  console.log(`prisma provider: ${current ? current[1] : "unchanged"}`);
+} else {
+  const next = text.replace(/provider\s*=\s*"(sqlite|postgresql)"/, `provider = "${provider}"`);
+  if (next !== text) fs.writeFileSync(schemaPath, next);
+  console.log(`prisma provider: ${provider}`);
+}
