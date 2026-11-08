@@ -7,6 +7,7 @@ import { hashPassword, login, setSessionCookie, getSession } from "@/lib/auth";
 import { calcAge } from "@/lib/requirePatient";
 import { saveAvatarFile } from "@/lib/postMediaUpload";
 import { normalizeAccountEmail } from "@/lib/realEmail";
+import { deliverEmailCode } from "@/app/actions/contactVerification";
 
 function normalizePhone(phone: string): string {
   return phone.replace(/\D/g, "");
@@ -119,7 +120,7 @@ export async function registerPatientAction(formData: FormData) {
   }
 
   const hashed = await hashPassword(password);
-  await prisma.user.create({
+  const created = await prisma.user.create({
     data: {
       username: phone,
       phone,
@@ -136,11 +137,13 @@ export async function registerPatientAction(formData: FormData) {
     },
   });
 
+  const sent = email ? await deliverEmailCode(created.id, locale) : null;
   const result = await login(phone, password, 60 * 60 * 24 * 30);
   if (result.success && result.session) {
     await setSessionCookie(result.session, 60 * 60 * 24 * 30);
     revalidatePath(`/${locale}/patient`);
-    return { success: true, redirectTo: `/${locale}/verify-contact` };
+    const sentQuery = sent?.success ? "?sent=email" : "";
+    return { success: true, redirectTo: `/${locale}/verify-contact${sentQuery}` };
   }
 
   return { success: false, error: "register_failed" };

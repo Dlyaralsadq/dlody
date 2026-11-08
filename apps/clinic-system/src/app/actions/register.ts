@@ -1,8 +1,9 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { hashPassword } from "@/lib/auth";
+import { hashPassword, login, setSessionCookie } from "@/lib/auth";
 import { normalizeAccountEmail } from "@/lib/realEmail";
+import { deliverEmailCode } from "@/app/actions/contactVerification";
 
 function generatePatientNumber(): string {
   return `DR-${Date.now().toString().slice(-6)}`;
@@ -22,7 +23,8 @@ export async function registerDoctor(data: {
   consultationFee?: number;
   workingHoursStart?: string;
   workingHoursEnd?: string;
-}): Promise<{ success: boolean; error?: string }> {
+  locale?: string;
+}): Promise<{ success: boolean; error?: string; redirectTo?: string }> {
   const checkedEmail = await normalizeAccountEmail(data.email);
   if (checkedEmail.status === "error") return { success: false, error: checkedEmail.error };
   const email = checkedEmail.status === "ok" ? checkedEmail.email : null;
@@ -57,7 +59,7 @@ export async function registerDoctor(data: {
   const hashedPwd = await hashPassword(data.password);
 
   // Create user + doctor in transaction
-  await prisma.$transaction(async (tx) => {
+  const created = await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
       data: {
         username: data.username,
@@ -89,7 +91,21 @@ export async function registerDoctor(data: {
         userId: user.id,
       },
     });
+    return user;
   });
+
+  const locale = data.locale || "ar";
+  if (email) {
+    const sent = await deliverEmailCode(created.id, locale);
+    const session = await login(data.username, data.password);
+    if (session.success && session.session) {
+      await setSessionCookie(session.session);
+      return {
+        success: true,
+        redirectTo: sent.success ? `/${locale}/verify-contact?sent=email` : `/${locale}/verify-contact`,
+      };
+    }
+  }
 
   return { success: true };
 }

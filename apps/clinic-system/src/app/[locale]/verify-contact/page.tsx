@@ -6,10 +6,13 @@ import { ArrowRight } from "lucide-react";
 
 export default async function VerifyContactPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string }>;
+  searchParams: Promise<{ sent?: string }>;
 }) {
   const { locale } = await params;
+  const { sent } = await searchParams;
   const ar = locale === "ar";
   const session = await requireAuth(locale);
   const status = await getContactVerificationStatus(session.userId);
@@ -32,8 +35,8 @@ export default async function VerifyContactPage({
           </h1>
           <p className="text-sm text-white/40">
             {ar
-              ? "أكد رقمك عبر واتساب وبريدك عبر رسالة نصية SMS"
-              : "Confirm your phone via WhatsApp and your email via SMS"}
+              ? "أكد رقمك عبر واتساب، وأكد بريدك بالرمز الذي يصلك على البريد"
+              : "Confirm your phone via WhatsApp, and your email with the code sent to that inbox"}
           </p>
         </div>
 
@@ -43,6 +46,7 @@ export default async function VerifyContactPage({
             initialEmail={status?.email}
             initialPhone={status?.phone}
             emailVerified={status?.emailVerified ?? false}
+            emailCodeSent={sent === "email"}
             phoneVerified={status?.phoneVerified ?? false}
           />
         </div>

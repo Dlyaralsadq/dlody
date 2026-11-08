@@ -31,6 +31,73 @@ function maskEmail(email: string): string {
 
 export type ContactVerifyPurpose = "email" | "phone";
 
+/** Create a 6-digit code and send it to the user's saved inbox. */
+export async function deliverEmailCode(
+  userId: string,
+  locale: string = "ar"
+): Promise<{
+  success: boolean;
+  error?: string;
+  channel?: "email";
+  destinationHint?: string;
+  devCode?: string;
+  devReason?: string;
+}> {
+  const ar = locale === "ar";
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, name: true, email: true },
+  });
+  const email = user?.email?.trim().toLowerCase() ?? "";
+  if (!user || !email) return { success: false, error: "email_required" };
+
+  const recentCount = await prisma.contactVerificationToken.count({
+    where: {
+      userId,
+      purpose: "email",
+      createdAt: { gte: new Date(Date.now() - 60 * 60 * 1000) },
+    },
+  });
+  if (recentCount >= MAX_REQUESTS_PER_HOUR) return { success: false, error: "rate_limited" };
+
+  const code = crypto.randomInt(100000, 1000000).toString();
+  const { delivered, channel } = await sendVerificationCode({
+    purpose: "email",
+    email,
+    code,
+    name: user.name,
+    ar,
+  });
+
+  await prisma.contactVerificationToken.create({
+    data: {
+      userId,
+      purpose: "email",
+      codeHash: hashCode(code),
+      destination: email,
+      channel: channel ?? "email",
+      expiresAt: new Date(Date.now() + CODE_TTL_MINUTES * 60 * 1000),
+    },
+  });
+
+  const destinationHint = maskEmail(email);
+  if (!delivered) {
+    if (process.env.NODE_ENV === "production" || isEmailConfigured()) {
+      return { success: false, error: "delivery_failed", destinationHint };
+    }
+    return {
+      success: true,
+      channel: "email",
+      destinationHint,
+      devCode: code,
+      devReason: ar
+        ? "لم يتم إعداد البريد بعد — استخدم هذا الرمز لتأكيد البريد على هذا الجهاز"
+        : "Email is not configured yet — use this code on this machine",
+    };
+  }
+  return { success: true, channel: "email", destinationHint };
+}
+
 export async function getContactVerificationStatus(userId?: string): Promise<{
   email: string | null;
   phone: string | null;
@@ -133,42 +200,7 @@ export async function requestContactVerification(
       });
     }
 
-    const code = crypto.randomInt(100000, 1000000).toString();
-    const { delivered, channel } = await sendVerificationCode({
-      purpose: "email",
-      email,
-      code,
-      name: user.name,
-      ar,
-    });
-
-    await prisma.contactVerificationToken.create({
-      data: {
-        userId: user.id,
-        purpose: "email",
-        codeHash: hashCode(code),
-        destination: email,
-        channel: channel ?? "email",
-        expiresAt: new Date(Date.now() + CODE_TTL_MINUTES * 60 * 1000),
-      },
-    });
-
-    const hint = maskEmail(email);
-    if (!delivered) {
-      if (process.env.NODE_ENV === "production" || isEmailConfigured()) {
-        return { success: false, error: "delivery_failed" };
-      }
-      return {
-        success: true,
-        channel: "email",
-        destinationHint: hint,
-        devCode: code,
-        devReason: ar
-          ? "لم يتم إعداد البريد بعد — استخدم هذا الرمز لتأكيد البريد على هذا الجهاز"
-          : "Email is not configured yet — use this code on this machine",
-      };
-    }
-    return { success: true, channel: channel ?? "email", destinationHint: hint };
+    return deliverEmailCode(user.id, locale);
   }
 
   // purpose === "phone"

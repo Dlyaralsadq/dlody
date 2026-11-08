@@ -16,12 +16,14 @@ export default function ContactVerifyPanel({
   initialPhone,
   emailVerified,
   phoneVerified,
+  emailCodeSent = false,
 }: {
   locale: string;
   initialEmail?: string | null;
   initialPhone?: string | null;
   emailVerified: boolean;
   phoneVerified: boolean;
+  emailCodeSent?: boolean;
 }) {
   const ar = locale === "ar";
   const [email, setEmail] = useState(initialEmail ?? "");
@@ -63,7 +65,8 @@ export default function ContactVerifyPanel({
         verified={emailDone}
         onVerified={() => setEmailDone(true)}
         inputType="email"
-        placeholder={ar ? "you@example.com" : "you@example.com"}
+        placeholder="name@gmail.com"
+        startAtCode={emailCodeSent}
         Icon={Mail}
         channelIcon={Mail}
       />
@@ -84,6 +87,7 @@ function VerifyBlock({
   placeholder,
   Icon,
   channelIcon: ChannelIcon,
+  startAtCode = false,
 }: {
   locale: string;
   purpose: ContactVerifyPurpose;
@@ -97,9 +101,10 @@ function VerifyBlock({
   placeholder: string;
   Icon: typeof Mail;
   channelIcon: typeof Mail;
+  startAtCode?: boolean;
 }) {
   const ar = locale === "ar";
-  const [step, setStep] = useState<Step>(verified ? "done" : "idle");
+  const [step, setStep] = useState<Step>(verified ? "done" : startAtCode ? "code" : "idle");
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");

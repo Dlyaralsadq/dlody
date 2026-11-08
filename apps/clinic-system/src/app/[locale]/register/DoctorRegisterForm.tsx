@@ -68,9 +68,15 @@ export default function DoctorRegisterForm({
       consultationFee:   fee ? parseFloat(fee) : undefined,
       workingHoursStart: fd.get("from") as string || undefined,
       workingHoursEnd:   fd.get("to") as string || undefined,
+      locale,
     });
 
     if (result.success) {
+      if (result.redirectTo) {
+        router.push(result.redirectTo);
+        router.refresh();
+        return;
+      }
       setStep("done");
     } else {
       const msgs: Record<string, { ar: string; en: string }> = {
