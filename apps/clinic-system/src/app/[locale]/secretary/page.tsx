@@ -4,6 +4,7 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import { getAllUpcomingAppointments, getDoctorForDisplay, getTodaySyncedQueue } from "@/app/actions/clinic";
 import { getSpecialtyConfig } from "@/lib/specialtyConfig";
 import { getDoctorByUserId, getDoctorPatients } from "@/app/actions/doctorPortal";
+import { hasActiveSubscription } from "@/lib/publicDoctors";
 import SecretaryClient from "./SecretaryClient";
 import { prisma } from "@/lib/prisma";
 
@@ -24,6 +25,9 @@ export default async function SecretaryPage({ params }: { params: Promise<{ loca
 
   if (!doctorId) redirect(`/${locale}/login`);
 
+  const subscribed = await hasActiveSubscription(doctorId);
+  if (!subscribed) redirect(`/${locale}/subscribe`);
+
   const [appointments, todayQueue, patients] = await Promise.all([
     getAllUpcomingAppointments(doctorId),
     getTodaySyncedQueue(doctorId),
@@ -34,7 +38,7 @@ export default async function SecretaryPage({ params }: { params: Promise<{ loca
   const specialtyConfig = doctorDoc ? getSpecialtyConfig(doctorDoc.specialty.name, (doctorDoc.specialty as any).config) : undefined;
 
   return (
-    <DashboardLayout locale={locale} userName={session.name} role={session.role} doctorSpecialty={doctorDoc?.specialty?.name ?? undefined}>
+    <DashboardLayout locale={locale} userName={session.name} role={session.role} doctorSpecialty={doctorDoc?.specialty?.name ?? undefined} doctorLogoUrl={doctorDoc?.logoUrl ?? null}>
       <SecretaryClient
         appointments={appointments as any}
         todayQueue={todayQueue as any}

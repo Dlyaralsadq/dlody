@@ -2,6 +2,8 @@ import { requireAuth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { getDoctorByUserId, getDoctorPatients } from "@/app/actions/doctorPortal";
+import { getAdminUserId, getUnreadCount } from "@/app/actions/messages";
+import { hasActiveSubscription } from "@/lib/publicDoctors";
 import DoctorPatientsClient from "./DoctorPatientsClient";
 
 export default async function DoctorPatientsPage({
@@ -20,11 +22,18 @@ export default async function DoctorPatientsPage({
   const doctor = await getDoctorByUserId(session.userId);
   if (!doctor) redirect(`/${locale}/login`);
 
-  const patients = await getDoctorPatients(doctor.id, search);
+  const subscribed = await hasActiveSubscription(doctor.id);
+  if (!subscribed) redirect(`/${locale}/subscribe`);
+
+  const [patients, adminUserId, unreadCount] = await Promise.all([
+    getDoctorPatients(doctor.id, search),
+    getAdminUserId(),
+    getUnreadCount(session.userId),
+  ]);
 
   return (
-    <DashboardLayout locale={locale} userName={session.name} role="doctor" doctorSpecialty={doctor?.specialty?.name ?? doctor?.specialty?.nameAr ?? undefined}>
-      <DoctorPatientsClient patients={patients} doctorId={doctor.id} locale={locale} showRecurring={true} doctorSpecialty={doctor.specialty.name} />
+    <DashboardLayout locale={locale} userName={session.name} role="doctor" doctorSpecialty={doctor?.specialty?.name ?? doctor?.specialty?.nameAr ?? undefined} doctorLogoUrl={doctor.logoUrl} recurringPatientsEnabled={doctor.recurringPatientsEnabled ?? true} userId={session.userId} adminUserId={adminUserId ?? undefined} unreadCount={unreadCount}>
+      <DoctorPatientsClient patients={patients} doctorId={doctor.id} locale={locale} showRecurring={doctor.recurringPatientsEnabled !== false} doctorSpecialty={doctor.specialty.name} />
     </DashboardLayout>
   );
 }

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
 import { calcAge } from "@/lib/requirePatient";
+import { isAppointmentSlotAvailable } from "@/app/actions/appointmentAvailability";
 
 function generatePatientNumber(): string {
   return `ONL-${Date.now().toString().slice(-6)}`;
@@ -26,6 +27,7 @@ export async function createOnlineBooking(data: {
   patientAge?: number | null;
   patientGender?: string | null;
   patientBloodType?: string | null;
+  nationalId?: string | null;
 }): Promise<{ success: boolean; error?: string; appointmentNumber?: string }> {
   const session = await getSession();
   if (!session || session.role !== "patient") {
@@ -42,6 +44,9 @@ export async function createOnlineBooking(data: {
   let patientGender: string | null;
   let patientBloodType: string | null;
   let bookedForName: string;
+  let nationalId: string | null = null;
+  let emergencyContact: string | null = null;
+  let emergencyPhone: string | null = null;
 
   if (bookingForSelf && accountUser) {
     phone = accountUser.username;
@@ -51,6 +56,10 @@ export async function createOnlineBooking(data: {
     patientGender = accountUser.gender ?? null;
     patientBloodType = accountUser.bloodType ?? null;
     bookedForName = accountUser.name;
+    // Prefer ID provided in form; fall back to stored account value
+    nationalId = data.nationalId?.trim() || accountUser.nationalId?.trim() || null;
+    emergencyContact = accountUser.emergencyContact ?? null;
+    emergencyPhone = accountUser.emergencyPhone ?? null;
   } else {
     phone = data.phone.replace(/\D/g, "");
     patientName = data.patientName || data.patientNameAr;
@@ -58,7 +67,13 @@ export async function createOnlineBooking(data: {
     patientAge = data.patientAge ?? null;
     patientGender = data.patientGender ?? null;
     patientBloodType = data.patientBloodType ?? null;
+    nationalId = data.nationalId?.trim() || null;
     bookedForName = patientName;
+  }
+
+  // National ID is required for all bookings
+  if (!nationalId) {
+    return { success: false, error: "national_id_required" };
   }
 
   const doctor = await prisma.doctor.findFirst({
@@ -74,18 +89,8 @@ export async function createOnlineBooking(data: {
     return { success: false, error: "invalid_date" };
   }
 
-  const windowStart = new Date(appointmentDate.getTime() - 15 * 60 * 1000);
-  const windowEnd = new Date(appointmentDate.getTime() + 15 * 60 * 1000);
-
-  const conflict = await prisma.appointment.findFirst({
-    where: {
-      doctorId: data.doctorId,
-      status: { notIn: ["cancelled", "deleted"] },
-      date: { gte: windowStart, lte: windowEnd },
-    },
-  });
-
-  if (conflict) return { success: false, error: "slot_taken" };
+  const available = await isAppointmentSlotAvailable(data.doctorId, data.date, data.time);
+  if (!available) return { success: false, error: "slot_taken" };
 
   let patient = await prisma.patient.findFirst({
     where: { phone, doctorId: data.doctorId },
@@ -100,18 +105,24 @@ export async function createOnlineBooking(data: {
         gender: patientGender ?? "unknown",
         phone,
         bloodType: patientBloodType,
+        nationalId,
+        emergencyContact,
+        emergencyPhone,
         dateOfBirth: patientAge != null
           ? new Date(new Date().getFullYear() - patientAge, 0, 1)
           : null,
         doctorId: data.doctorId,
       },
     });
-  } else if (patientGender || patientBloodType) {
+  } else if (patientGender || patientBloodType || nationalId || emergencyContact || emergencyPhone) {
     await prisma.patient.update({
       where: { id: patient.id },
       data: {
         gender: patientGender ?? patient.gender,
         bloodType: patientBloodType ?? patient.bloodType,
+        nationalId: nationalId ?? patient.nationalId,
+        emergencyContact: emergencyContact ?? patient.emergencyContact,
+        emergencyPhone: emergencyPhone ?? patient.emergencyPhone,
       },
     });
   }
@@ -120,6 +131,9 @@ export async function createOnlineBooking(data: {
   if (patientAge != null) notesParts.push(`العمر: ${patientAge}`);
   if (patientGender) notesParts.push(`الجنس: ${patientGender}`);
   if (patientBloodType) notesParts.push(`فصيلة الدم: ${patientBloodType}`);
+  if (nationalId) notesParts.push(`رقم الهوية: ${nationalId}`);
+  if (emergencyContact) notesParts.push(`جهة اتصال الطوارئ: ${emergencyContact}`);
+  if (emergencyPhone) notesParts.push(`هاتف الطوارئ: ${emergencyPhone}`);
   if (!bookingForSelf) notesParts.push(`حجز لشخص آخر: ${bookedForName}`);
 
   const aptNum = generateAppointmentNumber();
@@ -129,7 +143,7 @@ export async function createOnlineBooking(data: {
       patientId: patient.id,
       doctorId: data.doctorId,
       date: appointmentDate,
-      duration: 30,
+      duration: doctor.appointmentDuration && doctor.appointmentDuration > 0 ? doctor.appointmentDuration : 30,
       type: "consultation",
       status: "scheduled",
       arrivalStatus: "pending",
@@ -140,6 +154,7 @@ export async function createOnlineBooking(data: {
       patientAge,
       patientGender,
       patientBloodType,
+      patientNationalId: nationalId,
       bookedForName,
       bookingForSelf,
     },

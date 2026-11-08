@@ -2,6 +2,9 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { MapPin, Search } from "lucide-react";
+import { applyHighQualityTiles, MAP_DEFAULTS, startMapTileRefresh, setMapDisplayStyle, type MapDisplayStyle } from "@/lib/leafletTiles";
+import { loadLeafletMap, preloadLeaflet, preloadMapTileHosts } from "@/lib/leafletLoader";
+import MapStyleSwitcher from "@/components/ui/MapStyleSwitcher";
 
 interface MapPickerProps {
   lat?: number | null;
@@ -23,6 +26,9 @@ export default function MapPicker({
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstance = useRef<any>(null);
   const markerRef = useRef<any>(null);
+  const tileLayersRef = useRef<import("leaflet").TileLayer[]>([]);
+  const leafletRef = useRef<typeof import("leaflet") | null>(null);
+  const [mapStyle, setMapStyle] = useState<MapDisplayStyle>("auto");
   const onChangeRef = useRef(onChange);
   const [searchQuery, setSearchQuery] = useState(address ?? "");
   const [searching, setSearching] = useState(false);
@@ -66,12 +72,18 @@ export default function MapPicker({
   );
 
   useEffect(() => {
+    preloadMapTileHosts(locale);
+    void preloadLeaflet();
+  }, [locale]);
+
+  useEffect(() => {
     const container = mapRef.current;
     if (!container) return;
 
     let cancelled = false;
+    let stopTileRefresh: (() => void) | undefined;
 
-    import("leaflet").then((L) => {
+    loadLeafletMap().then((L) => {
       if (cancelled || !mapRef.current || mapInstance.current) return;
       if ((mapRef.current as HTMLElement & { _leaflet_id?: number })._leaflet_id) return;
 
@@ -82,12 +94,15 @@ export default function MapPicker({
         shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
       });
 
-      const map = L.map(mapRef.current!).setView([defaultLat, defaultLng], lat && lng ? 16 : 14);
+      const map = L.map(mapRef.current!, {
+        center: [defaultLat, defaultLng],
+        zoom: lat && lng ? 17 : 14,
+        ...MAP_DEFAULTS,
+      });
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "© OpenStreetMap contributors",
-        maxZoom: 19,
-      }).addTo(map);
+      tileLayersRef.current = applyHighQualityTiles(L, map, locale, mapStyle);
+      stopTileRefresh = startMapTileRefresh(map, tileLayersRef);
+      leafletRef.current = L;
 
       const marker = L.marker([defaultLat, defaultLng], { draggable: true }).addTo(map);
 
@@ -135,14 +150,30 @@ export default function MapPicker({
 
     return () => {
       cancelled = true;
+      stopTileRefresh?.();
       if (mapInstance.current) {
         mapInstance.current.remove();
         mapInstance.current = null;
         markerRef.current = null;
       }
+      tileLayersRef.current = [];
+      leafletRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [locale]);
+
+  useEffect(() => {
+    const map = mapInstance.current;
+    const L = leafletRef.current;
+    if (!map || !L) return;
+    tileLayersRef.current = setMapDisplayStyle(
+      map,
+      tileLayersRef.current,
+      L,
+      locale,
+      mapStyle
+    );
+  }, [mapStyle, locale]);
 
   const handleLocate = () => {
     if (!navigator.geolocation) return;
@@ -221,6 +252,13 @@ export default function MapPicker({
 
       <div className="relative rounded-xl overflow-hidden border border-white/8" style={{ height: "260px" }}>
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+        <MapStyleSwitcher
+          value={mapStyle}
+          onChange={setMapStyle}
+          locale={locale}
+          compact
+          className="absolute top-2 end-2 z-[1000]"
+        />
         <div ref={mapRef} style={{ height: "100%", width: "100%" }} />
         <div className="absolute bottom-2 start-2 z-[1000] flex items-center gap-1.5 rounded-lg bg-[#0f1629]/90 backdrop-blur-sm border border-white/10 px-2.5 py-1.5">
           <MapPin className="h-3 w-3 text-indigo-400 shrink-0" />

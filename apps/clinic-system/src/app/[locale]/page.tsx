@@ -21,7 +21,8 @@ export default async function LocaleRootPage({
 
   return (
     <div
-      className="min-h-screen bg-[#060912] flex flex-col items-center justify-center p-6"
+      className="min-h-screen flex flex-col items-center justify-center p-6"
+      style={{ background: "var(--bg-root)" }}
       dir={ar ? "rtl" : "ltr"}
     >
       {/* ambient glows */}
@@ -49,7 +50,7 @@ export default async function LocaleRootPage({
             <span className="absolute -top-1 -end-1 h-4 w-4 rounded-full bg-cyan-400 border-2 border-[#060912] animate-pulse" />
           </div>
           <h1 className="mt-5 text-3xl font-black tracking-tight text-white">
-            {ar ? "كلينيك برو" : "ClinicPro"}
+            {ar ? "طبيبي" : "Tabibee"}
           </h1>
           <p className="mt-2 text-sm text-white/40">
             {ar
@@ -136,7 +137,7 @@ export default async function LocaleRootPage({
         </div>
 
         <p className="text-center text-xs text-white/15 mt-8">
-          &copy; 2026 ClinicPro ·{" "}
+          &copy; 2026 {ar ? "طبيبي" : "Tabibee"} ·{" "}
           {ar ? "جميع الحقوق محفوظة" : "All rights reserved"}
         </p>
       </div>

@@ -1,5 +1,29 @@
 // @ts-nocheck
 import bcrypt from "bcryptjs";
+import fs from "fs";
+import path from "path";
+
+const repoRoot = path.resolve(process.cwd(), "../..");
+for (const name of [".env.local", ".env"]) {
+  const file = path.join(repoRoot, name);
+  if (!fs.existsSync(file)) continue;
+  for (const line of fs.readFileSync(file, "utf8").split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq < 1) continue;
+    const key = trimmed.slice(0, eq).trim();
+    if (process.env[key] !== undefined) continue;
+    let value = trimmed.slice(eq + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    process.env[key] = value;
+  }
+}
 
 // Universal client - works with SQLite (local) and PostgreSQL (Railway/Vercel)
 async function createPrisma() {
@@ -9,16 +33,18 @@ async function createPrisma() {
     const { Pool } = await import("pg");
     const { PrismaClient } = await import("@prisma/client");
     const pool = new Pool({ connectionString: dbUrl, ssl: { rejectUnauthorized: false } });
-    return new PrismaClient({ adapter: new PrismaPg(pool) });
+    const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
+    return { prisma, close: () => pool.end() };
   } else {
     const { PrismaBetterSqlite3 } = await import("@prisma/adapter-better-sqlite3");
     const { PrismaClient } = await import("@prisma/client");
-    return new PrismaClient({ adapter: new PrismaBetterSqlite3({ url: dbUrl }) });
+    const prisma = new PrismaClient({ adapter: new PrismaBetterSqlite3({ url: dbUrl }) });
+    return { prisma, close: () => prisma.$disconnect() };
   }
 }
 
 async function main() {
-  const prisma = await createPrisma();
+  const { prisma, close } = await createPrisma();
   console.log("🌱 Seeding database...");
 
   const hashedPassword = await bcrypt.hash("admin123", 12);
@@ -175,6 +201,7 @@ async function main() {
   console.log("   Admin login:  admin / admin123");
   console.log("   Doctor login: dr.ahmad / admin123");
   await prisma.$disconnect();
+  await close();
 }
 
 main().catch((e) => {

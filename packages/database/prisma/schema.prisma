@@ -2,10 +2,9 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// Supports both SQLite (local dev) and PostgreSQL (production/Vercel)
-// Set DATABASE_PROVIDER=postgresql for production, default is sqlite
+// sqlite locally when DATABASE_URL is absent. postgresql when Neon is configured.
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 model User {
@@ -16,12 +15,63 @@ model User {
   role            String    @default("admin")
   isActive        Boolean   @default(true)
   linkedDoctorId  String?
+  /// Login + contact: optional email (unique when set). Verified via SMS to the user's phone.
+  email           String?   @unique
+  emailVerified   Boolean   @default(false)
+  /// Login + contact: digits-only phone. Verified via WhatsApp OTP.
+  phone           String?
+  phoneVerified   Boolean   @default(false)
   gender          String?
   dateOfBirth     DateTime?
   bloodType       String?
+  avatarUrl       String?
+  nationalId      String?
+  emergencyContact String?
+  emergencyPhone  String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   doctor          Doctor?
+  doctorFollows   DoctorFollow[] @relation("PatientFollows")
+  postLikes       PostLike[]     @relation("PatientLikes")
+  postComments    PostComment[]  @relation("PatientComments")
+  savedPosts      SavedPost[]    @relation("PatientSavedPosts")
+  doctorRatings   DoctorRating[] @relation("PatientRatings")
+  passwordResets  PasswordResetToken[]
+  contactVerifications ContactVerificationToken[]
+
+  @@index([phone])
+}
+
+model PasswordResetToken {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash    String
+  method      String   // "email" | "phone"
+  destination String   // normalized phone or lowercased email the code was sent to
+  attempts    Int      @default(0)
+  used        Boolean  @default(false)
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+}
+
+/// OTP used to confirm email (delivered by SMS) or phone (delivered by WhatsApp).
+model ContactVerificationToken {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose     String   // "email" | "phone"
+  codeHash    String
+  destination String   // email being verified, or phone digits being verified
+  channel     String   // "email" | "sms" | "whatsapp"
+  attempts    Int      @default(0)
+  used        Boolean  @default(false)
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([userId, purpose])
 }
 
 model Specialty {
@@ -53,13 +103,20 @@ model Doctor {
   workingDays       String?
   workingHoursStart String?
   workingHoursEnd   String?
+  appointmentDuration Int     @default(30)
   bio               String?
   bioAr             String?
+  /// Public clinic page: one service per line.
+  services          String?
+  /// Short notice shown at the top of the public clinic page.
+  announcement      String?
   logoUrl           String?
   clinicLat         Float?
   clinicLng         Float?
   clinicAddress     String?
   customTreatmentTypes String?
+  showConsultationFee  Boolean   @default(true)
+  recurringPatientsEnabled Boolean @default(true)
   isActive          Boolean   @default(true)
   userId            String?   @unique
   user              User?     @relation(fields: [userId], references: [id])
@@ -67,6 +124,93 @@ model Doctor {
   updatedAt         DateTime  @updatedAt
   appointments      Appointment[]
   patients          Patient[]
+  posts             Post[]
+  followers         DoctorFollow[]
+  ratings           DoctorRating[]
+  stories           DoctorStory[]
+}
+
+model Post {
+  id        String        @id @default(cuid())
+  doctorId  String
+  doctor    Doctor        @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  content   String
+  imageUrl  String?
+  videoUrl  String?
+  mediaType String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  likes     PostLike[]
+  comments  PostComment[]
+  savedBy   SavedPost[]
+}
+
+model DoctorFollow {
+  id        String   @id @default(cuid())
+  patientId String
+  patient   User     @relation("PatientFollows", fields: [patientId], references: [id], onDelete: Cascade)
+  doctorId  String
+  doctor    Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([patientId, doctorId])
+}
+
+model PostLike {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  patientId String
+  patient   User     @relation("PatientLikes", fields: [patientId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([postId, patientId])
+}
+
+model PostComment {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  patientId String
+  patient   User     @relation("PatientComments", fields: [patientId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SavedPost {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  patientId String
+  patient   User     @relation("PatientSavedPosts", fields: [patientId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([postId, patientId])
+}
+
+model DoctorRating {
+  id        String   @id @default(cuid())
+  doctorId  String
+  doctor    Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  patientId String
+  patient   User     @relation("PatientRatings", fields: [patientId], references: [id], onDelete: Cascade)
+  score     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([patientId, doctorId])
+}
+
+model DoctorStory {
+  id        String   @id @default(cuid())
+  doctorId  String
+  doctor    Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  mediaUrl  String
+  mediaType String
+  caption   String?
+  createdAt DateTime @default(now())
+  expiresAt DateTime
 }
 
 model Patient {
@@ -98,6 +242,49 @@ model Patient {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   appointments      Appointment[]
+  documents         PatientDocument[]
+  clinicalNotes     ClinicalNote[]
+  diagnoses         PatientDiagnosis[]
+}
+
+model PatientDocument {
+  id         String   @id @default(cuid())
+  patientId  String
+  patient    Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctorId   String
+  title      String
+  category   String
+  fileName   String
+  mimeType   String
+  sizeBytes  Int
+  storageKey String
+  note       String?
+  createdAt  DateTime @default(now())
+
+  @@index([patientId, doctorId])
+}
+
+model ClinicalNote {
+  id        String   @id @default(cuid())
+  patientId String
+  patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctorId  String
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([patientId, doctorId])
+}
+
+model PatientDiagnosis {
+  id        String   @id @default(cuid())
+  patientId String
+  patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctorId  String
+  title     String
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+
+  @@index([patientId, doctorId])
 }
 
 model Appointment {
@@ -114,6 +301,8 @@ model Appointment {
   arrivalStatus     String   @default("pending")
   queueNumber       Int?
   isPaid            Boolean  @default(false)
+  feeAmount         Float?
+  reminderSentAt    DateTime?
   reason            String?
   notes             String?
   diagnosis         String?
@@ -128,6 +317,7 @@ model Appointment {
   patientAge        Int?
   patientGender     String?
   patientBloodType  String?
+  patientNationalId String?
   bookedForName     String?
   bookingForSelf    Boolean  @default(true)
   deletedBy         String?
@@ -154,4 +344,12 @@ model DoctorSubscription {
   notified    Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+/// Singleton row (id = "default") holding the prices shown on the subscribe page.
+model PlatformSettings {
+  id           String   @id @default("default")
+  monthlyPrice Int      @default(50000)
+  yearlyPrice  Int      @default(480000)
+  updatedAt    DateTime @updatedAt
 }

@@ -31,9 +31,9 @@ export async function PATCH(request: NextRequest) {
     "specialtyId", "phone", "email",
     "licenseNumber", "qualification", "qualificationAr",
     "experienceYears", "consultationFee",
-    "workingDays", "workingHoursStart", "workingHoursEnd",
+    "workingDays", "workingHoursStart", "workingHoursEnd", "appointmentDuration",
     "clinicAddress", "clinicLat", "clinicLng",
-    "logoUrl",
+    "logoUrl", "showConsultationFee", "recurringPatientsEnabled",
   ];
   for (const f of fields) {
     if (updateData[f] !== undefined) allowed[f] = updateData[f];

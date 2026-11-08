@@ -1,6 +1,15 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import {
+  applyHighQualityTiles,
+  MAP_DEFAULTS,
+  startMapTileRefresh,
+  setMapDisplayStyle,
+  type MapDisplayStyle,
+} from "@/lib/leafletTiles";
+import { loadLeafletMap } from "@/lib/leafletLoader";
+import MapStyleSwitcher from "@/components/ui/MapStyleSwitcher";
 
 export default function DoctorLocationMap({
   lat,
@@ -15,31 +24,37 @@ export default function DoctorLocationMap({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
+  const tileLayersRef = useRef<import("leaflet").TileLayer[]>([]);
+  const leafletRef = useRef<typeof import("leaflet") | null>(null);
+  const [mapStyle, setMapStyle] = useState<MapDisplayStyle>("auto");
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
     let cancelled = false;
+    let stopRefresh: (() => void) | undefined;
 
     (async () => {
-      const L = await import("leaflet");
-      await import("leaflet/dist/leaflet.css" as any);
+      const L = await loadLeafletMap();
 
       if (cancelled || !containerRef.current || mapRef.current) return;
       if ((containerRef.current as HTMLElement & { _leaflet_id?: number })._leaflet_id) return;
 
       const map = L.map(containerRef.current!, {
         center: [lat, lng],
-        zoom: 16,
+        zoom: 17,
         zoomControl: true,
         scrollWheelZoom: false,
+        dragging: true,
+        touchZoom: true,
+        doubleClickZoom: true,
+        ...MAP_DEFAULTS,
       });
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "© OpenStreetMap",
-        maxZoom: 19,
-      }).addTo(map);
+      tileLayersRef.current = applyHighQualityTiles(L, map, locale, mapStyle);
+      stopRefresh = startMapTileRefresh(map, tileLayersRef);
+      leafletRef.current = L;
 
       const icon = L.divIcon({
         className: "",
@@ -78,18 +93,43 @@ export default function DoctorLocationMap({
 
     return () => {
       cancelled = true;
+      stopRefresh?.();
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
       }
+      tileLayersRef.current = [];
+      leafletRef.current = null;
     };
-  }, [lat, lng, name]);
+  }, [lat, lng, name, locale]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const L = leafletRef.current;
+    if (!map || !L) return;
+    tileLayersRef.current = setMapDisplayStyle(
+      map,
+      tileLayersRef.current,
+      L,
+      locale,
+      mapStyle
+    );
+  }, [mapStyle, locale]);
 
   return (
-    <div
-      ref={containerRef}
-      className="w-full rounded-2xl overflow-hidden border border-white/8"
-      style={{ height: 240 }}
-    />
+    <div className="relative w-full">
+      <MapStyleSwitcher
+        value={mapStyle}
+        onChange={setMapStyle}
+        locale={locale}
+        compact
+        className="absolute top-2 end-2 z-[1000] pointer-events-auto"
+      />
+      <div
+        ref={containerRef}
+        className="w-full rounded-2xl overflow-hidden border border-white/8"
+        style={{ height: 240 }}
+      />
+    </div>
   );
 }

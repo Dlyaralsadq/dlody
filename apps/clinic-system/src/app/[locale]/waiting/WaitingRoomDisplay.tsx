@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import DoctorAvatar from "@/components/ui/DoctorAvatar";
 
 interface Appointment {
   id: string;
@@ -55,7 +56,7 @@ export default function WaitingRoomDisplay({ roomData, doctor, locale }: {
   const onHold        = (roomData.onHold ?? []);
 
   return (
-    <div className="min-h-screen overflow-hidden bg-[#060912] text-white select-none" dir={ar ? "rtl" : "ltr"}>
+    <div className="theme-fixed-dark min-h-screen overflow-hidden bg-[#060912] text-white select-none" dir={ar ? "rtl" : "ltr"}>
 
       {/* Ambient background */}
       <div className="fixed inset-0 pointer-events-none">
@@ -69,15 +70,12 @@ export default function WaitingRoomDisplay({ roomData, doctor, locale }: {
       {/* ── TOP BAR ── */}
       <div className="relative z-10 flex items-center justify-between border-b border-white/6 px-10 py-5 backdrop-blur-sm bg-black/20">
         <div className="flex items-center gap-5">
-          {/* Specialty icon */}
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-700 shadow-lg shadow-indigo-950/60 text-2xl">
-            {doctor.specialty?.name === "Cardiology" ? "❤️"
-              : doctor.specialty?.name === "Neurology" ? "🧠"
-              : doctor.specialty?.name === "Orthopedics" ? "🦴"
-              : doctor.specialty?.name === "Ophthalmology" ? "👁️"
-              : doctor.specialty?.name === "Dentistry" ? "🦷"
-              : "🏥"}
-          </div>
+          <DoctorAvatar
+            logoUrl={doctor.logoUrl}
+            specialtyId={doctor.specialtyId ?? doctor.specialty?.id}
+            size="xl"
+            className="h-14 w-14 rounded-2xl shadow-lg shadow-indigo-950/60"
+          />
           <div>
             <p className="text-xl font-black text-white tracking-tight">{ar ? doctor.nameAr : doctor.name}</p>
             <p className="text-sm text-indigo-300/70 mt-0.5">{ar ? doctor.specialty?.nameAr : doctor.specialty?.name}</p>
@@ -233,7 +231,7 @@ export default function WaitingRoomDisplay({ roomData, doctor, locale }: {
 
         {/* Footer */}
         <p className="text-center text-xs text-white/10 font-mono tracking-widest uppercase">
-          ClinicPro · {ar ? "يتجدد كل ثانيتين" : "Refreshes every 2 seconds"}
+          {ar ? "طبيبي" : "Tabibee"} · {ar ? "يتجدد كل ثانيتين" : "Refreshes every 2 seconds"}
         </p>
       </div>
     </div>

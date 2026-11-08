@@ -60,6 +60,7 @@ export default function DoctorRegisterForm({
       username:          fd.get("username") as string,
       password:          pwd,
       phone:             fd.get("phone") as string,
+      email:             (fd.get("email") as string) || undefined,
       specialtyId:       fd.get("specialtyId") as string,
       clinicAddress:     mapData.address || (fd.get("address") as string) || undefined,
       clinicLat:         mapData.lat ?? undefined,
@@ -74,6 +75,10 @@ export default function DoctorRegisterForm({
     } else {
       const msgs: Record<string, { ar: string; en: string }> = {
         username_taken:   { ar: "اسم المستخدم محجوز، اختر اسماً آخر", en: "Username already taken" },
+        phone_taken:      { ar: "رقم الهاتف مسجّل مسبقاً", en: "Phone already registered" },
+        email_taken:      { ar: "البريد مسجّل مسبقاً", en: "Email already registered" },
+        invalid_email:    { ar: "بريد غير صالح", en: "Invalid email" },
+        invalid_phone:    { ar: "رقم هاتف غير صالح", en: "Invalid phone" },
         invalid_specialty:{ ar: "التخصص غير صحيح", en: "Invalid specialty" },
       };
       setError((msgs[result.error ?? ""] ?? { ar: "حدث خطأ، حاول مجدداً", en: "An error occurred" })[ar ? "ar" : "en"]);
@@ -117,7 +122,7 @@ export default function DoctorRegisterForm({
       {/* Names */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs text-white/40 mb-1.5">{ar ? "الاسم بالعربي *" : "Arabic name *"}</label>
+          <label className="form-label">{ar ? "الاسم بالعربي *" : "Arabic name *"}</label>
           <div className="relative">
             <input
               name="nameAr" required dir="rtl"
@@ -130,7 +135,7 @@ export default function DoctorRegisterForm({
           </div>
         </div>
         <div>
-          <label className="block text-xs text-white/40 mb-1.5">{ar ? "الاسم بالإنجليزي" : "English name"}</label>
+          <label className="form-label">{ar ? "الاسم بالإنجليزي" : "English name"}</label>
           <div className="relative">
             <input
               name="name" dir="ltr"
@@ -146,7 +151,7 @@ export default function DoctorRegisterForm({
 
       {/* Specialty */}
       <div>
-        <label className="block text-xs text-white/40 mb-1.5">{ar ? "التخصص *" : "Specialty *"}</label>
+        <label className="form-label">{ar ? "التخصص *" : "Specialty *"}</label>
         <div className="relative">
           <select
             name="specialtyId" required
@@ -163,7 +168,7 @@ export default function DoctorRegisterForm({
 
       {/* Phone */}
       <div>
-        <label className="block text-xs text-white/40 mb-1.5">{ar ? "رقم الهاتف *" : "Phone *"}</label>
+        <label className="form-label">{ar ? "رقم الهاتف *" : "Phone *"}</label>
         <div className="relative">
           <input
             name="phone" required type="tel" dir="ltr"
@@ -172,12 +177,27 @@ export default function DoctorRegisterForm({
           />
           <Phone size={13} className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-white/25" />
         </div>
+        <p className="mt-1 text-[11px] text-white/30">{ar ? "يُؤكد لاحقاً عبر واتساب" : "Verified later via WhatsApp"}</p>
+      </div>
+
+      {/* Email */}
+      <div>
+        <label className="form-label">{ar ? "البريد الإلكتروني" : "Email"}</label>
+        <div className="relative">
+          <input
+            name="email" type="email" dir="ltr"
+            placeholder="doctor@example.com"
+            className="w-full rounded-xl border border-white/10 bg-[#0c1121] ps-4 pe-9 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-indigo-500/50"
+          />
+          <User size={13} className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-white/25" />
+        </div>
+        <p className="mt-1 text-[11px] text-white/30">{ar ? "يُؤكد عبر رسالة SMS إلى هاتفك — ويُستخدم لتسجيل الدخول" : "Verified via SMS to your phone — also used to sign in"}</p>
       </div>
 
       {/* Location */}
       <div>
         <div className="flex items-center justify-between mb-1.5">
-          <label className="text-xs text-white/40">{ar ? "موقع العيادة على الخريطة" : "Clinic location on map"}</label>
+          <label className="form-label !mb-0">{ar ? "موقع العيادة على الخريطة" : "Clinic location on map"}</label>
           <button type="button" onClick={() => setShowMap(!showMap)}
             className="text-xs text-indigo-400 hover:text-indigo-300 transition flex items-center gap-1">
             <MapPin size={11} />
@@ -212,17 +232,17 @@ export default function DoctorRegisterForm({
       {/* Fee + Hours */}
       <div className="grid grid-cols-3 gap-2">
         <div>
-          <label className="block text-xs text-white/40 mb-1.5">{ar ? "سعر الكشفية (د.ع)" : "Fee (IQD)"}</label>
+          <label className="form-label">{ar ? "سعر الكشفية (د.ع)" : "Fee (IQD)"}</label>
           <input name="fee" type="number" min="0" placeholder="50000"
             className="w-full rounded-xl border border-white/10 bg-[#0c1121] px-3 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-indigo-500/50" />
         </div>
         <div>
-          <label className="block text-xs text-white/40 mb-1.5">{ar ? "من" : "From"}</label>
+          <label className="form-label">{ar ? "من" : "From"}</label>
           <input name="from" type="time"
             className="w-full rounded-xl border border-white/10 bg-[#0c1121] px-3 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500/50 [color-scheme:dark]" />
         </div>
         <div>
-          <label className="block text-xs text-white/40 mb-1.5">{ar ? "إلى" : "To"}</label>
+          <label className="form-label">{ar ? "إلى" : "To"}</label>
           <input name="to" type="time"
             className="w-full rounded-xl border border-white/10 bg-[#0c1121] px-3 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500/50 [color-scheme:dark]" />
         </div>
@@ -232,7 +252,7 @@ export default function DoctorRegisterForm({
 
       {/* Username */}
       <div>
-        <label className="block text-xs text-white/40 mb-1.5">{ar ? "اسم المستخدم *" : "Username *"}</label>
+        <label className="form-label">{ar ? "اسم المستخدم *" : "Username *"}</label>
         <input
           name="username" required dir="ltr" autoComplete="username"
           placeholder={ar ? "مثال: dr.ahmed" : "e.g. dr.ahmed"}
@@ -243,7 +263,7 @@ export default function DoctorRegisterForm({
       {/* Passwords */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs text-white/40 mb-1.5">{ar ? "كلمة المرور *" : "Password *"}</label>
+          <label className="form-label">{ar ? "كلمة المرور *" : "Password *"}</label>
           <div className="relative">
             <input
               name="password" required type={showPwd ? "text" : "password"}
@@ -258,7 +278,7 @@ export default function DoctorRegisterForm({
           </div>
         </div>
         <div>
-          <label className="block text-xs text-white/40 mb-1.5">{ar ? "تأكيد كلمة المرور *" : "Confirm password *"}</label>
+          <label className="form-label">{ar ? "تأكيد كلمة المرور *" : "Confirm password *"}</label>
           <div className="relative">
             <input
               name="password2" required type={showPwd ? "text" : "password"}

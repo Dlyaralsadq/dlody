@@ -4,7 +4,7 @@ import { getTranslations } from "next-intl/server";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { getAdminStats, getDoctorsWithAccounts } from "@/app/actions/admin";
 import { getAdminInbox, getUnreadCount } from "@/app/actions/messages";
-import { getDoctorSubscriptions } from "@/app/actions/subscription";
+import { getDoctorSubscriptions, getSubscriptionPricing } from "@/app/actions/subscription";
 import { getSpecialties } from "@/app/actions/doctors";
 import AdminDashboardClient from "./AdminDashboardClient";
 
@@ -18,13 +18,14 @@ export default async function AdminPage({
 
   if (session.role !== "admin") redirect(`/${locale}/doctor`);
 
-  const [stats, doctors, specialties, messages, unreadCount, subscriptions] = await Promise.all([
+  const [stats, doctors, specialties, messages, unreadCount, subscriptions, pricing] = await Promise.all([
     getAdminStats(),
     getDoctorsWithAccounts(),
     getSpecialties(),
     getAdminInbox(session.userId),
     getUnreadCount(session.userId),
     getDoctorSubscriptions(),
+    getSubscriptionPricing(),
   ]);
 
   // Get all doctors for messaging (to send messages to them)
@@ -33,12 +34,13 @@ export default async function AdminPage({
   return (
     <DashboardLayout locale={locale} userName={session.name} role="admin"
       userId={session.userId} messages={messages as any} unreadCount={unreadCount}
-      doctors={doctorsForMsg as any}>
+      doctors={doctorsForMsg as any} supportUnread={unreadCount}>
       <AdminDashboardClient
         stats={stats}
         doctors={doctors}
         specialties={specialties}
         subscriptions={subscriptions}
+        pricing={pricing}
         locale={locale}
       />
     </DashboardLayout>

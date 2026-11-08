@@ -1,10 +1,11 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { hashPassword, login, SESSION_COOKIE_NAME } from "@/lib/auth";
+import { hashPassword, login, setSessionCookie, getSession } from "@/lib/auth";
 import { calcAge } from "@/lib/requirePatient";
+import { saveAvatarFile } from "@/lib/postMediaUpload";
 
 function normalizePhone(phone: string): string {
   return phone.replace(/\D/g, "");
@@ -20,6 +21,10 @@ export async function getPatientProfile(userId: string) {
       gender: true,
       dateOfBirth: true,
       bloodType: true,
+      avatarUrl: true,
+      nationalId: true,
+      emergencyContact: true,
+      emergencyPhone: true,
     },
   });
 }
@@ -31,6 +36,9 @@ export async function updatePatientProfile(
     gender: string;
     dateOfBirth: string;
     bloodType: string;
+    nationalId?: string;
+    emergencyContact?: string;
+    emergencyPhone?: string;
   }
 ): Promise<{ success: boolean; error?: string }> {
   const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -43,6 +51,9 @@ export async function updatePatientProfile(
       gender: data.gender || null,
       dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
       bloodType: data.bloodType || null,
+      nationalId: data.nationalId?.trim() || null,
+      emergencyContact: data.emergencyContact?.trim() || null,
+      emergencyPhone: data.emergencyPhone?.trim() || null,
     },
   });
 
@@ -50,9 +61,36 @@ export async function updatePatientProfile(
   return { success: true };
 }
 
+export async function uploadPatientAvatar(
+  formData: FormData
+): Promise<{ success: boolean; url?: string; error?: string }> {
+  const session = await getSession();
+  if (!session || session.role !== "patient") return { success: false, error: "unauthorized" };
+
+  const file = formData.get("file");
+  if (!file || !(file instanceof File)) return { success: false, error: "no_file" };
+
+  try {
+    const result = await saveAvatarFile(session.userId, file);
+    if ("error" in result) return { success: false, error: result.error };
+
+    await prisma.user.update({
+      where: { id: session.userId },
+      data: { avatarUrl: result.url },
+    });
+
+    revalidatePath("/[locale]/patient/account", "page");
+    return { success: true, url: result.url };
+  } catch (err) {
+    console.error("[uploadPatientAvatar]", err);
+    return { success: false, error: "upload_failed" };
+  }
+}
+
 export async function registerPatientAction(formData: FormData) {
   const name = (formData.get("name") as string)?.trim();
   const phone = normalizePhone((formData.get("phone") as string) ?? "");
+  const emailRaw = ((formData.get("email") as string) ?? "").trim().toLowerCase();
   const password = formData.get("password") as string;
   const gender = (formData.get("gender") as string) || null;
   const dateOfBirth = (formData.get("dateOfBirth") as string) || null;
@@ -63,15 +101,30 @@ export async function registerPatientAction(formData: FormData) {
     return { success: false, error: "invalid_data" };
   }
 
-  const existing = await prisma.user.findUnique({ where: { username: phone } });
+  if (emailRaw && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailRaw)) {
+    return { success: false, error: "invalid_email" };
+  }
+
+  const existing = await prisma.user.findFirst({
+    where: { OR: [{ username: phone }, { phone }] },
+  });
   if (existing) {
     return { success: false, error: "phone_taken" };
+  }
+
+  if (emailRaw) {
+    const emailTaken = await prisma.user.findUnique({ where: { email: emailRaw } });
+    if (emailTaken) return { success: false, error: "email_taken" };
   }
 
   const hashed = await hashPassword(password);
   await prisma.user.create({
     data: {
       username: phone,
+      phone,
+      phoneVerified: false,
+      email: emailRaw || null,
+      emailVerified: false,
       password: hashed,
       name,
       role: "patient",
@@ -82,40 +135,30 @@ export async function registerPatientAction(formData: FormData) {
     },
   });
 
-  const result = await login(phone, password);
+  const result = await login(phone, password, 60 * 60 * 24 * 30);
   if (result.success && result.session) {
-    const cookieStore = await cookies();
-    cookieStore.set(SESSION_COOKIE_NAME(), result.session, {
-      httpOnly: true,
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 30,
-    });
+    await setSessionCookie(result.session, 60 * 60 * 24 * 30);
     revalidatePath(`/${locale}/patient`);
-    return { success: true };
+    return { success: true, redirectTo: `/${locale}/verify-contact` };
   }
 
   return { success: false, error: "register_failed" };
 }
 
 export async function patientLoginAction(formData: FormData) {
-  const phone = normalizePhone((formData.get("phone") as string) ?? "");
+  const identifier =
+    ((formData.get("identifier") as string) ?? (formData.get("phone") as string) ?? "").trim();
   const password = formData.get("password") as string;
   const locale = (formData.get("locale") as string) ?? "ar";
 
-  const result = await login(phone, password);
-  if (!result.success || result.role !== "patient") {
-    return { success: false, error: "invalid_credentials" };
+  const result = await login(identifier, password, 60 * 60 * 24 * 30);
+  if (!result.success || result.role !== "patient" || !result.session) {
+    return { success: false as const, error: "invalid_credentials" };
   }
 
-  const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE_NAME(), result.session!, {
-    httpOnly: true,
-    sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 30,
-  });
-
+  await setSessionCookie(result.session, 60 * 60 * 24 * 30);
   revalidatePath(`/${locale}/patient`);
-  return { success: true };
+  redirect(`/${locale}/patient/updates`);
 }
 
 export async function getPatientAppointments(phone: string) {

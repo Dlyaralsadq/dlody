@@ -8,9 +8,10 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "db:generate": "prisma generate --config prisma.config.ts",
+    "db:generate": "node ../../scripts/sync-prisma-provider.mjs && prisma generate --config prisma.config.ts",
     "db:migrate": "prisma migrate dev --config prisma.config.ts",
     "db:deploy": "prisma migrate deploy --config prisma.config.ts",
+    "db:push": "node ../../scripts/sync-prisma-provider.mjs && prisma db push --config prisma.config.ts",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed-check": "tsx prisma/seed-check.ts",
     "db:studio": "prisma studio --config prisma.config.ts",

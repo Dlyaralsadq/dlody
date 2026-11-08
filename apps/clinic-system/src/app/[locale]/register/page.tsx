@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import DoctorRegisterForm from "./DoctorRegisterForm";
+import ScrollSpacer from "@/components/ui/ScrollSpacer";
 
 export default async function RegisterPage({
   params,
@@ -26,7 +27,7 @@ export default async function RegisterPage({
   });
 
   return (
-    <div className="min-h-screen bg-[#060912]" dir={ar ? "rtl" : "ltr"}>
+    <div className="min-h-screen" style={{ background: "var(--bg-root)" }} dir={ar ? "rtl" : "ltr"}>
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-[700px] h-[400px] bg-indigo-600/10 blur-[120px] rounded-full" />
       </div>
@@ -67,6 +68,7 @@ export default async function RegisterPage({
           </Link>
         </p>
       </div>
+      <ScrollSpacer variant="page" />
     </div>
   );
 }

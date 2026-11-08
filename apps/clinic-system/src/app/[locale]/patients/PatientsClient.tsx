@@ -128,12 +128,10 @@ export default function PatientsClient({ patients, locale, initialSearch }: Pati
                     </td>
                     <td>
                       <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-600 font-semibold text-xs">
-                          {patient.name[0]}
-                        </div>
+                        <div className="patient-avatar patient-avatar-sm">{patient.name[0]}</div>
                         <div>
-                          <p className="font-medium text-gray-900">{patient.name}</p>
-                          {patient.nameAr && <p className="text-xs text-gray-400">{patient.nameAr}</p>}
+                          <p className="patient-name-primary">{patient.name}</p>
+                          {patient.nameAr && <p className="patient-name-secondary">{patient.nameAr}</p>}
                         </div>
                       </div>
                     </td>

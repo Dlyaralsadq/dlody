@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { generateId } from "@/lib/utils";
 import { hashPassword, getSession } from "@/lib/auth";
 import { parseCustomTreatmentTypes, type TreatmentTypeOption } from "@/lib/treatmentTypes";
+import { isAppointmentSlotAvailable } from "@/app/actions/appointmentAvailability";
 
 export async function createSecretaryForDoctor(
   doctorId: string,
@@ -76,6 +77,7 @@ export async function getDoctorPatients(doctorId: string, search?: string) {
               { name: { contains: search } },
               { nameAr: { contains: search } },
               { phone: { contains: search } },
+              { nationalId: { contains: search } },
             ],
           }
         : {}),
@@ -106,7 +108,7 @@ export async function createPatientForDoctor(
     phone: string;
     email?: string;
     bloodType?: string;
-    nationalId?: string;
+    nationalId: string;               // required
     insurance?: string;
     medicalHistory?: string;
     allergies?: string;
@@ -114,6 +116,9 @@ export async function createPatientForDoctor(
     emergencyPhone?: string;
   }
 ) {
+  if (!data.nationalId?.trim()) {
+    throw new Error("National ID is required");
+  }
   const patientNumber = generateId("P");
   await prisma.patient.create({
     data: {
@@ -176,6 +181,45 @@ export async function updateAppointmentStatus(appointmentId: string, doctorId: s
   return { success: true };
 }
 
+/** Doctor can reschedule or edit any of their own appointments (time and/or patient info). */
+export async function doctorEditAppointment(
+  appointmentId: string,
+  doctorId: string,
+  data: { date?: string; time?: string; type?: string; reason?: string; notes?: string }
+): Promise<{ success: boolean; error?: string }> {
+  const apt = await prisma.appointment.findFirst({ where: { id: appointmentId, doctorId } });
+  if (!apt) return { success: false, error: "not_found" };
+
+  let newDate = apt.date;
+  if (data.date && data.time) {
+    const available = await isAppointmentSlotAvailable(doctorId, data.date, data.time, {
+      excludeAppointmentId: appointmentId,
+    });
+    if (!available) return { success: false, error: "slot_taken" };
+
+    const [y, m, d] = data.date.split("-").map(Number);
+    const [h, min] = data.time.split(":").map(Number);
+    newDate = new Date(y, m - 1, d, h, min, 0);
+  }
+
+  await prisma.appointment.update({
+    where: { id: appointmentId },
+    data: {
+      date: newDate,
+      type: data.type ?? apt.type,
+      reason: data.reason ?? apt.reason,
+      notes: data.notes ?? apt.notes,
+      editedBy: doctorId,
+      editNote: "عُدِّل بواسطة الطبيب",
+    },
+  });
+
+  revalidatePath("/[locale]/doctor/appointments", "page");
+  revalidatePath("/[locale]/doctor", "page");
+  revalidatePath("/[locale]/secretary", "page");
+  return { success: true };
+}
+
 export async function updateDoctorSettings(
   doctorId: string,
   data: Record<string, unknown>
@@ -192,10 +236,12 @@ export async function updateDoctorSettings(
 
   const allowed: Record<string, unknown> = {};
   const fields = [
-    "name", "nameAr", "bio", "bioAr", "specialtyId", "phone", "email",
+    "name", "nameAr", "bio", "bioAr", "services", "announcement", "specialtyId", "phone", "email",
     "licenseNumber", "qualification", "qualificationAr", "experienceYears",
     "consultationFee", "workingDays", "workingHoursStart", "workingHoursEnd",
+    "appointmentDuration",
     "clinicAddress", "clinicLat", "clinicLng", "logoUrl",
+    "showConsultationFee", "recurringPatientsEnabled",
   ];
   for (const f of fields) {
     if (data[f] !== undefined) allowed[f] = data[f];
@@ -220,6 +266,44 @@ export async function getDoctorTreatmentTypes(doctorId: string): Promise<Treatme
     select: { customTreatmentTypes: true },
   });
   return parseCustomTreatmentTypes(doctor?.customTreatmentTypes);
+}
+
+export async function updateRecurringPatientData(
+  patientId: string,
+  doctorId: string,
+  data: {
+    treatmentType?: string | null;
+    totalSessions?: number | null;
+    sessionsCompleted?: number | null;
+    recurringWeeks?: number | null;
+    nextVisitDate?: string | null; // ISO date string "YYYY-MM-DD" or null
+  }
+): Promise<{ success: boolean; error?: string }> {
+  const session = await getSession();
+  if (!session) return { success: false, error: "unauthorized" };
+
+  // Verify this patient belongs to this doctor
+  const patient = await prisma.patient.findFirst({
+    where: { id: patientId, doctorId },
+    select: { id: true },
+  });
+  if (!patient) return { success: false, error: "not_found" };
+
+  await prisma.patient.update({
+    where: { id: patientId },
+    data: {
+      ...(data.treatmentType !== undefined && { treatmentType: data.treatmentType || null }),
+      ...(data.totalSessions !== undefined && { totalSessions: data.totalSessions }),
+      ...(data.sessionsCompleted !== undefined && { sessionsCompleted: data.sessionsCompleted }),
+      ...(data.recurringWeeks !== undefined && { recurringWeeks: data.recurringWeeks }),
+      ...(data.nextVisitDate !== undefined && {
+        nextVisitDate: data.nextVisitDate ? new Date(data.nextVisitDate) : null,
+      }),
+    },
+  });
+
+  revalidatePath("/[locale]/doctor/recurring", "page");
+  return { success: true };
 }
 
 export async function saveDoctorTreatmentTypes(

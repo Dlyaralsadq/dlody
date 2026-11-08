@@ -5,6 +5,12 @@ export interface District {
   lat: number;
   lng: number;
   radiusKm: number;
+  /** Override the auto-generated Nominatim Arabic query when the unit is a
+   *  nahiya / sub-district rather than a full qada', or when the OSM name
+   *  differs from the local Arabic name stored above. */
+  nominatimAr?: string;
+  /** Override the auto-generated Nominatim English query. */
+  nominatimEn?: string;
 }
 
 export interface Governorate {
@@ -57,27 +63,35 @@ export const IRAQ_GOVERNORATES: Governorate[] = [
   {
     id: "nineveh", ar: "نينوى", en: "Nineveh", lat: 36.3450, lng: 43.1450,
     districts: [
-      { id: "mosul",        ar: "الموصل",          en: "Mosul",         lat: 36.340, lng: 43.145, radiusKm: 20 },
-      { id: "talafar",      ar: "تلعفر",           en: "Talafar",       lat: 36.375, lng: 42.447, radiusKm: 15 },
-      { id: "sinjar",       ar: "سنجار",           en: "Sinjar",        lat: 36.320, lng: 41.870, radiusKm: 25 },
-      { id: "hamdaniya",    ar: "الحمدانية",       en: "Hamdaniyah",    lat: 36.170, lng: 43.480, radiusKm: 15 },
-      { id: "makhmour",     ar: "مخمور",           en: "Makhmour",      lat: 35.776, lng: 43.583, radiusKm: 15 },
-      { id: "baaj",         ar: "البعاج",          en: "Baaj",          lat: 35.802, lng: 41.974, radiusKm: 30 },
-      { id: "rabia",        ar: "ربيعة",           en: "Rabia",         lat: 36.857, lng: 42.000, radiusKm: 20 },
-      { id: "akre",         ar: "أكرى",            en: "Akre",          lat: 36.745, lng: 43.885, radiusKm: 15 },
-      { id: "bashiqa",      ar: "بعشيقة",          en: "Bashiqa",       lat: 36.480, lng: 43.450, radiusKm: 10 },
+      { id: "mosul",        ar: "الموصل",          en: "Mosul",         lat: 36.340, lng: 43.130, radiusKm: 18 },
+      { id: "talafar",      ar: "تلعفر",           en: "Talafar",       lat: 36.371, lng: 42.452, radiusKm: 12 },
+      { id: "sinjar",       ar: "سنجار",           en: "Sinjar",        lat: 36.323, lng: 41.875, radiusKm: 22 },
+      { id: "hamdaniya",    ar: "الحمدانية",       en: "Hamdaniyah",    lat: 36.204, lng: 43.473, radiusKm: 12 },
+      { id: "makhmour",     ar: "مخمور",           en: "Makhmour",      lat: 35.776, lng: 43.583, radiusKm: 13 },
+      { id: "baaj",         ar: "البعاج",          en: "Baaj",          lat: 35.833, lng: 41.976, radiusKm: 25 },
+      { id: "rabia",        ar: "ربيعة",           en: "Rabia",         lat: 36.857, lng: 42.095, radiusKm: 18 },
+      { id: "akre",         ar: "أكرى",            en: "Akre",          lat: 36.745, lng: 43.893, radiusKm: 13 },
+      { id: "bashiqa",  ar: "بعشيقة",  en: "Bashiqa",  lat: 36.517, lng: 43.450, radiusKm: 7,
+        nominatimAr: "ناحية بعشيقة، نينوى، العراق",
+        nominatimEn: "Bashiqa, Nineveh, Iraq" },
+      { id: "tilkaif",  ar: "تلكيف",   en: "Tilkaif",  lat: 36.475, lng: 43.066, radiusKm: 10,
+        nominatimAr: "ناحية تلكيف، نينوى، العراق",
+        nominatimEn: "Tilkaif, Nineveh, Iraq" },
+      { id: "sheikhan", ar: "الشيخان", en: "Sheikhan", lat: 36.626, lng: 43.292, radiusKm: 12,
+        nominatimAr: "قضاء الشيخان، نينوى، العراق",
+        nominatimEn: "Shekhan District, Nineveh, Iraq" },
     ],
   },
   {
     id: "erbil", ar: "أربيل", en: "Erbil", lat: 36.1912, lng: 44.0092,
     districts: [
-      { id: "erbil_city",   ar: "أربيل",           en: "Erbil City",    lat: 36.191, lng: 44.009, radiusKm: 20 },
-      { id: "koya",         ar: "كوية",            en: "Koya",          lat: 36.085, lng: 44.626, radiusKm: 15 },
-      { id: "shaqlawa",     ar: "شقلاوة",          en: "Shaqlawa",      lat: 36.408, lng: 44.320, radiusKm: 10 },
-      { id: "rawanduz",     ar: "روانز",           en: "Rawanduz",      lat: 36.614, lng: 44.524, radiusKm: 15 },
-      { id: "soran",        ar: "سوران",           en: "Soran",         lat: 36.660, lng: 44.543, radiusKm: 10 },
-      { id: "makhmour_e",   ar: "مخمور",           en: "Makhmour",      lat: 35.776, lng: 43.583, radiusKm: 12 },
-      { id: "mergasur",     ar: "مرغسور",          en: "Mergasur",      lat: 36.841, lng: 44.308, radiusKm: 15 },
+      { id: "erbil_city",   ar: "أربيل",           en: "Erbil City",    lat: 36.191, lng: 44.009, radiusKm: 18 },
+      { id: "koya",         ar: "كوية",            en: "Koya",          lat: 36.085, lng: 44.626, radiusKm: 12 },
+      { id: "shaqlawa",     ar: "شقلاوة",          en: "Shaqlawa",      lat: 36.408, lng: 44.320, radiusKm:  8 },
+      { id: "rawanduz",     ar: "روانز",           en: "Rawanduz",      lat: 36.614, lng: 44.524, radiusKm: 12 },
+      { id: "soran",        ar: "سوران",           en: "Soran",         lat: 36.660, lng: 44.543, radiusKm:  8 },
+      { id: "mergasur",     ar: "مرغسور",          en: "Mergasur",      lat: 36.841, lng: 44.308, radiusKm: 13 },
+      { id: "choman",       ar: "جومان",           en: "Choman",        lat: 36.942, lng: 44.843, radiusKm: 12 },
     ],
   },
   {
@@ -96,12 +110,13 @@ export const IRAQ_GOVERNORATES: Governorate[] = [
   {
     id: "duhok", ar: "دهوك", en: "Duhok", lat: 36.8669, lng: 42.9866,
     districts: [
-      { id: "duhok_city",   ar: "دهوك",            en: "Duhok City",    lat: 36.867, lng: 42.987, radiusKm: 12 },
-      { id: "zakho",        ar: "زاخو",            en: "Zakho",         lat: 37.144, lng: 42.680, radiusKm: 12 },
-      { id: "amadiya",      ar: "العمادية",         en: "Amadiyah",      lat: 37.091, lng: 43.489, radiusKm: 12 },
-      { id: "aqra",         ar: "عقرة",            en: "Aqra",          lat: 36.744, lng: 43.894, radiusKm: 15 },
-      { id: "bardarash",    ar: "بردرش",           en: "Bardarash",     lat: 36.499, lng: 43.602, radiusKm: 10 },
-      { id: "shekhan",      ar: "الشيخان",         en: "Shekhan",       lat: 36.620, lng: 43.344, radiusKm: 12 },
+      { id: "duhok_city",   ar: "دهوك",            en: "Duhok City",    lat: 36.867, lng: 42.987, radiusKm: 10 },
+      { id: "zakho",        ar: "زاخو",            en: "Zakho",         lat: 37.144, lng: 42.680, radiusKm: 10 },
+      { id: "amadiya",      ar: "العمادية",         en: "Amadiyah",      lat: 37.091, lng: 43.489, radiusKm: 10 },
+      { id: "aqra",         ar: "عقرة",            en: "Aqra",          lat: 36.744, lng: 43.894, radiusKm: 12 },
+      { id: "bardarash",    ar: "بردرش",           en: "Bardarash",     lat: 36.499, lng: 43.602, radiusKm:  8 },
+      { id: "sumel",        ar: "سميل",            en: "Sumel",         lat: 36.873, lng: 42.849, radiusKm:  8 },
+      { id: "batifa",       ar: "باطوفا",          en: "Batifa",        lat: 37.041, lng: 43.089, radiusKm: 10 },
     ],
   },
   {

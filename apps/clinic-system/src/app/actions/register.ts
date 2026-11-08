@@ -13,6 +13,7 @@ export async function registerDoctor(data: {
   username: string;
   password: string;
   phone: string;
+  email?: string;
   specialtyId: string;
   clinicAddress?: string;
   clinicLat?: number;
@@ -26,6 +27,23 @@ export async function registerDoctor(data: {
     where: { username: data.username },
   });
   if (existing) return { success: false, error: "username_taken" };
+
+  const phone = data.phone.replace(/\D/g, "");
+  if (phone.length < 7) return { success: false, error: "invalid_phone" };
+
+  const phoneTaken = await prisma.user.findFirst({
+    where: { OR: [{ phone }, { username: phone }] },
+  });
+  if (phoneTaken) return { success: false, error: "phone_taken" };
+
+  const email = data.email?.trim().toLowerCase() || null;
+  if (email) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { success: false, error: "invalid_email" };
+    const emailTaken = await prisma.user.findUnique({ where: { email } });
+    if (emailTaken) return { success: false, error: "email_taken" };
+    const doctorEmailTaken = await prisma.doctor.findUnique({ where: { email } });
+    if (doctorEmailTaken) return { success: false, error: "email_taken" };
+  }
 
   // Check specialty exists
   const specialty = await prisma.specialty.findUnique({
@@ -44,6 +62,10 @@ export async function registerDoctor(data: {
         name: data.nameAr || data.name,
         role: "doctor",
         isActive: true,
+        phone,
+        phoneVerified: false,
+        email,
+        emailVerified: false,
       },
     });
 
@@ -51,7 +73,8 @@ export async function registerDoctor(data: {
       data: {
         name: data.name || data.nameAr,
         nameAr: data.nameAr,
-        phone: data.phone,
+        phone,
+        email,
         specialtyId: data.specialtyId,
         clinicAddress: data.clinicAddress,
         clinicLat: data.clinicLat,

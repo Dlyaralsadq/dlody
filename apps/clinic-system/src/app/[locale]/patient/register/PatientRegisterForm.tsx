@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
-import { Phone, Lock, Eye, EyeOff, ArrowRight, User2 } from "lucide-react";
+import { Phone, Lock, Eye, EyeOff, ArrowRight, User2, Mail } from "lucide-react";
 import { registerPatientAction } from "@/app/actions/patientAuth";
 
 export default function PatientRegisterForm({ locale }: { locale: string }) {
@@ -21,11 +21,13 @@ export default function PatientRegisterForm({ locale }: { locale: string }) {
     fd.set("locale", locale);
     const result = await registerPatientAction(fd);
     if (result.success) {
-      router.push(`/${locale}/patient`);
+      router.push(result.redirectTo ?? `/${locale}/verify-contact`);
       router.refresh();
     } else {
       const msgs: Record<string, string> = {
         phone_taken: ar ? "رقم الهاتف مسجّل مسبقاً" : "Phone already registered",
+        email_taken: ar ? "البريد مسجّل مسبقاً" : "Email already registered",
+        invalid_email: ar ? "بريد غير صالح" : "Invalid email",
         invalid_data: ar ? "تحقق من البيانات المدخلة" : "Please check your input",
       };
       setError(msgs[result.error ?? ""] ?? (ar ? "حدث خطأ" : "Something went wrong"));
@@ -55,6 +57,20 @@ export default function PatientRegisterForm({ locale }: { locale: string }) {
           <Phone className="absolute inset-y-0 start-3.5 my-auto h-4 w-4 text-white/25" />
           <input name="phone" type="tel" required dir="ltr" className="form-input ps-10 pe-4" placeholder="07XXXXXXXXX" />
         </div>
+        <p className="text-[11px] text-white/30">
+          {ar ? "سيتم تأكيده لاحقاً عبر واتساب" : "You'll verify it later via WhatsApp"}
+        </p>
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="form-label">{ar ? "البريد الإلكتروني (اختياري)" : "Email (optional)"}</label>
+        <div className="relative">
+          <Mail className="absolute inset-y-0 start-3.5 my-auto h-4 w-4 text-white/25" />
+          <input name="email" type="email" dir="ltr" className="form-input ps-10 pe-4" placeholder="you@example.com" />
+        </div>
+        <p className="text-[11px] text-white/30">
+          {ar ? "يُؤكد عبر رسالة SMS إلى هاتفك" : "Verified via SMS to your phone"}
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-3">

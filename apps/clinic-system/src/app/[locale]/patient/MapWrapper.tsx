@@ -1,17 +1,19 @@
 "use client";
 
+import { useEffect } from "react";
 import dynamic from "next/dynamic";
+import { preloadLeaflet, preloadMapTileHosts } from "@/lib/leafletLoader";
 import type { DoctorPin, FocusArea } from "./PatientMapView";
+
+if (typeof window !== "undefined") {
+  preloadMapTileHosts("ar");
+  void preloadLeaflet();
+}
 
 const PatientMapView = dynamic(() => import("./PatientMapView"), {
   ssr: false,
   loading: () => (
-    <div className="w-full h-full flex items-center justify-center bg-[#060912]">
-      <div className="flex flex-col items-center gap-3">
-        <span className="h-10 w-10 rounded-full border-2 border-indigo-500/30 border-t-indigo-500 animate-spin" />
-        <p className="text-white/40 text-sm">جاري تحميل الخريطة...</p>
-      </div>
-    </div>
+    <div className="absolute inset-0 bg-[#0c1121] animate-pulse" aria-hidden />
   ),
 });
 
@@ -19,10 +21,27 @@ export default function MapWrapper({
   doctors,
   locale,
   focusArea,
+  mapFilters,
+  hasFilter,
 }: {
   doctors: DoctorPin[];
   locale: string;
   focusArea?: FocusArea | null;
+  mapFilters?: { specialty?: string; gov?: string; district?: string; q?: string };
+  hasFilter?: boolean;
 }) {
-  return <PatientMapView doctors={doctors} locale={locale} focusArea={focusArea} />;
+  useEffect(() => {
+    preloadMapTileHosts(locale);
+    void preloadLeaflet();
+  }, [locale]);
+
+  return (
+    <PatientMapView
+      doctors={doctors}
+      locale={locale}
+      focusArea={focusArea}
+      mapFilters={mapFilters}
+      hasFilter={hasFilter}
+    />
+  );
 }

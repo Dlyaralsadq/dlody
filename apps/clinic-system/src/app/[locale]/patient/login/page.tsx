@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getSession, getAuthenticatedRedirectPath, clearSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import PatientLoginForm from "./PatientLoginForm";
+import AuthShell from "@/components/layout/AuthShell";
 
 export default async function PatientLoginPage({
   params,
@@ -19,36 +20,30 @@ export default async function PatientLoginPage({
   }
 
   return (
-    <div
-      className="min-h-screen bg-[#060912] flex items-center justify-center p-4"
-      dir={ar ? "rtl" : "ltr"}
-    >
-      <div className="relative w-full max-w-[400px]">
-        <div className="text-center mb-8">
-          <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-600 to-teal-600 text-3xl shadow-xl">
-            👤
-          </div>
-          <h1 className="mt-4 text-2xl font-black text-white">
-            {ar ? "دخول المريض" : "Patient Sign In"}
-          </h1>
-          <p className="mt-1 text-sm text-white/40">
-            {ar ? "تابع مواعيدك واحجز بسهولة" : "Track appointments and book easily"}
+    <AuthShell
+      locale={locale}
+      accent="patient"
+      title={ar ? "دخول المريض" : "Patient Sign In"}
+      subtitle={ar ? "تابع مواعيدك واحجز بسهولة" : "Track appointments and book easily"}
+      cardTitle={ar ? "مرحباً بعودتك" : "Welcome back"}
+      cardSubtitle={ar ? "سجّل دخولك للمتابعة" : "Sign in to continue"}
+      backHref={`/${locale}`}
+      backLabel={ar ? "العودة للرئيسية" : "Back to home"}
+      footer={
+        <div className="flex flex-col items-center gap-3 text-sm">
+          <Link href={`/${locale}/forgot-password`} className="text-cyan-400 hover:underline font-medium">
+            {ar ? "نسيت كلمة المرور؟" : "Forgot password?"}
+          </Link>
+          <p className="text-app-3">
+            {ar ? "ليس لديك حساب؟ " : "Don't have an account? "}
+            <Link href={`/${locale}/patient/register`} className="text-cyan-400 hover:underline font-semibold">
+              {ar ? "إنشاء حساب" : "Create account"}
+            </Link>
           </p>
         </div>
-
-        <div className="card-glass rounded-3xl p-7">
-          <PatientLoginForm locale={locale} />
-        </div>
-
-        <div className="mt-6 flex justify-center gap-4 text-xs">
-          <Link href={`/${locale}/patient`} className="text-white/40 hover:text-white/70">
-            {ar ? "← العودة للخريطة" : "← Back to map"}
-          </Link>
-          <Link href={`/${locale}`} className="text-white/40 hover:text-white/70">
-            {ar ? "الرئيسية" : "Home"}
-          </Link>
-        </div>
-      </div>
-    </div>
+      }
+    >
+      <PatientLoginForm locale={locale} />
+    </AuthShell>
   );
 }

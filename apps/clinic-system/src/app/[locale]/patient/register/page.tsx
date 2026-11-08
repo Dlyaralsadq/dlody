@@ -19,7 +19,7 @@ export default async function PatientRegisterPage({
   }
 
   return (
-    <div className="min-h-screen bg-[#060912] flex items-center justify-center p-4" dir={ar ? "rtl" : "ltr"}>
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: "var(--bg-root)" }} dir={ar ? "rtl" : "ltr"}>
       <div className="relative w-full max-w-[400px]">
         <div className="text-center mb-8">
           <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-600 to-teal-600 text-3xl shadow-xl">

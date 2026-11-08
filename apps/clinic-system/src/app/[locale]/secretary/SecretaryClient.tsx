@@ -6,20 +6,25 @@ import Link from "next/link";
 import {
   CalendarPlus, CheckCircle2, Clock, User, Stethoscope,
   Phone, Search, DoorOpen, Banknote, MonitorPlay,
-  UserCheck, AlertCircle, CheckCheck, ChevronDown, ChevronRight, FlaskConical, RotateCcw, PlayCircle, Pencil, Trash2
+  UserCheck, AlertCircle, CheckCheck, ChevronDown, ChevronRight, FlaskConical, RotateCcw, PlayCircle, Pencil, Trash2,
+  CreditCard, History, RefreshCw
 } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
-import { checkInPatient, quickBookAppointment, confirmPatientEntry, markPayment, patientReturnedFromTest, callNextPatient, completeAppointment, callOnHoldPatient, secretaryDeleteAppointment, secretaryEditAppointment } from "@/app/actions/clinic";
+import DoctorAvatar from "@/components/ui/DoctorAvatar";
+import TimeSlotSelect from "@/components/ui/TimeSlotSelect";
+import { formatTime12h } from "@/lib/timeFormat";
+import { checkInPatient, quickBookAppointment, confirmPatientEntry, markPayment, patientReturnedFromTest, callNextPatient, completeAppointment, callOnHoldPatient, secretaryDeleteAppointment, secretaryEditAppointment, lookupPatientByNationalId } from "@/app/actions/clinic";
 import type { SpecialtyConfig } from "@/lib/specialtyConfig";
+import { SCROLL_CONTAINER } from "@/lib/scrollUi";
 
 interface Appointment {
   id: string; appointmentNumber: string; date: Date; type: string;
   status: string; arrivalStatus: string; queueNumber: number | null;
   reason: string | null; isPaid: boolean; source?: string;
-  patient: { id: string; name: string; nameAr: string | null; phone: string; };
+  patient: { id: string; name: string; nameAr: string | null; phone: string; nationalId: string | null; };
 }
 
 const STATUS_CFG: Record<string, { ar: string; en: string; dot: string; bg: string; text: string }> = {
@@ -61,8 +66,9 @@ function formatDayHeader(dateStr: string, locale: string): { label: string; isTo
   return { label, isToday, isTomorrow };
 }
 
-function formatTime(date: Date): string {
-  return new Date(date).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
+function formatTime(date: Date, ar: boolean = true): string {
+  const d = new Date(date);
+  return formatTime12h(`${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`, ar);
 }
 
 export default function SecretaryClient({ appointments, todayQueue, doctor, patients, doctorId, locale, specialtyConfig, secretaryUserId }: {
@@ -78,6 +84,48 @@ export default function SecretaryClient({ appointments, todayQueue, doctor, pati
   const [paymentConfirmId, setPaymentConfirmId] = useState<string | null>(null);
   const [editApt, setEditApt] = useState<Appointment | null>(null);
   const [deleteAptId, setDeleteAptId] = useState<string | null>(null);
+  const [bookError, setBookError] = useState("");
+  const [bookDate, setBookDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [bookTime, setBookTime] = useState("");
+  const [editError, setEditError] = useState("");
+
+  // ── Auto-fill: controlled booking form fields (lookup by national ID) ─────
+  type FoundPatient = Awaited<ReturnType<typeof lookupPatientByNationalId>>;
+  const [bookNationalId, setBookNationalId] = useState("");
+  const [bookPhone, setBookPhone]           = useState("");
+  const [bookName, setBookName]             = useState("");
+  const [bookGender, setBookGender]         = useState("");
+  const [foundPatient, setFoundPatient]     = useState<FoundPatient>(null);
+  const [lookingUp, setLookingUp]           = useState(false);
+
+  // National ID lookup with 500ms debounce
+  useEffect(() => {
+    const trimmed = bookNationalId.trim();
+    if (trimmed.length < 3) { setFoundPatient(null); return; }
+    const timer = setTimeout(async () => {
+      setLookingUp(true);
+      try {
+        const result = await lookupPatientByNationalId(doctorId, trimmed);
+        setFoundPatient(result);
+        if (result) {
+          setBookName(result.name);
+          setBookPhone(result.phone);
+          setBookGender(result.gender);
+        }
+      } finally {
+        setLookingUp(false);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [bookNationalId, doctorId]);
+
+  function resetBookingForm() {
+    setBookNationalId(""); setBookPhone(""); setBookName(""); setBookGender("");
+    setFoundPatient(null); setBookError("");
+    setBookDate(new Date().toISOString().split("T")[0]); setBookTime("");
+  }
+  const [editDate, setEditDate] = useState("");
+  const [editTime, setEditTime] = useState("");
 
   const ar = locale === "ar";
 
@@ -94,7 +142,8 @@ export default function SecretaryClient({ appointments, todayQueue, doctor, pati
   const filtered = search
     ? appointments.filter(a =>
         a.patient.name.toLowerCase().includes(search.toLowerCase()) ||
-        a.patient.phone.includes(search))
+        a.patient.phone.includes(search) ||
+        (a.patient.nationalId?.includes(search) ?? false))
     : appointments;
 
   const grouped = groupByDate(filtered);
@@ -110,18 +159,37 @@ export default function SecretaryClient({ appointments, todayQueue, doctor, pati
   const handleBook = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
+    setBookError("");
     const fd = new FormData(e.currentTarget);
-    const result = await quickBookAppointment(doctorId, {
-      patientName: fd.get("patientName") as string,
-      patientPhone: fd.get("patientPhone") as string,
-      patientGender: fd.get("patientGender") as string,
-      date: fd.get("date") as string,
-      time: fd.get("time") as string,
-      type: fd.get("type") as string,
-      notes: fd.get("notes") as string || undefined,
-    });
-    setLoading(false);
-    if (result.success) { setBookingOpen(false); router.refresh(); }
+    try {
+      const result = await quickBookAppointment(doctorId, {
+        patientName: bookName || (fd.get("patientName") as string),
+        patientPhone: bookPhone || (fd.get("patientPhone") as string),
+        patientGender: bookGender || (fd.get("patientGender") as string),
+        patientNationalId: bookNationalId || (fd.get("patientNationalId") as string),
+        existingPatientId: foundPatient?.id,
+        date: bookDate,
+        time: bookTime,
+        type: fd.get("type") as string,
+        notes: fd.get("notes") as string || undefined,
+      });
+      if (result.success) {
+        setBookingOpen(false);
+        resetBookingForm();
+        router.refresh();
+      } else {
+        const errMap: Record<string, string> = {
+          slot_taken: ar ? "هذا الوقت محجوز مسبقاً، الرجاء اختيار وقت آخر" : "This time slot is already booked, please choose another",
+          national_id_required: ar ? "رقم الهوية الوطنية مطلوب لتأكيد الحجز" : "National ID is required to confirm booking",
+        };
+        setBookError(errMap[result.error ?? ""] ?? (ar ? "حدث خطأ أثناء الحجز" : "An error occurred while booking"));
+      }
+    } catch (err) {
+      console.error("Booking error:", err);
+      setBookError(ar ? "حدث خطأ غير متوقع، يرجى المحاولة مرة أخرى" : "Unexpected error, please try again");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const genderOpts = [{ value: "male", label: ar ? "ذكر" : "Male" }, { value: "female", label: ar ? "أنثى" : "Female" }];
@@ -129,27 +197,43 @@ export default function SecretaryClient({ appointments, todayQueue, doctor, pati
 
   const toggleDay = (key: string) => setCollapsedDays(prev => ({ ...prev, [key]: !prev[key] }));
 
+  const openEditModal = (apt: Appointment) => {
+    const d = new Date(apt.date);
+    setEditDate(d.toISOString().split("T")[0]);
+    setEditTime(`${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`);
+    setEditError("");
+    setEditApt(apt);
+  };
+
   return (
     <div className="space-y-5">
 
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-white">{ar ? "استقبال العيادة" : "Clinic Reception"}</h1>
-          <p className="text-sm text-slate-500 mt-0.5">{todayStr}</p>
+        <div className="flex items-start gap-4">
           {doctor && (
-            <p className="mt-1.5 text-sm text-indigo-300 flex items-center gap-1.5">
-              <Stethoscope className="h-3.5 w-3.5" />
-              {ar ? doctor.nameAr : doctor.name} · {ar ? doctor.specialty.nameAr : doctor.specialty.name}
-            </p>
+            <DoctorAvatar
+              logoUrl={doctor.logoUrl}
+              specialtyId={doctor.specialtyId ?? doctor.specialty?.id}
+              size="lg"
+            />
           )}
+          <div>
+            <h1 className="text-xl font-bold text-white">{ar ? "استقبال العيادة" : "Clinic Reception"}</h1>
+            <p className="text-sm text-slate-500 mt-0.5">{todayStr}</p>
+            {doctor && (
+              <p className="mt-1.5 text-sm text-indigo-300">
+                {ar ? doctor.nameAr : doctor.name} · {ar ? doctor.specialty.nameAr : doctor.specialty.name}
+              </p>
+            )}
+          </div>
         </div>
         <div className="flex gap-2 shrink-0">
           <Link href={`/${locale}/waiting?d=${doctorId}`} target="_blank"
             className="flex items-center gap-1.5 rounded-xl border border-[#2a3347] bg-[#111827] px-3 py-2 text-xs text-slate-400 hover:text-white hover:border-indigo-500/40 transition-all">
             <MonitorPlay className="h-3.5 w-3.5" />{ar ? "شاشة الانتظار" : "Waiting Screen"}
           </Link>
-          <Button onClick={() => setBookingOpen(true)}>
+          <Button onClick={() => { resetBookingForm(); setBookingOpen(true); }}>
             <CalendarPlus className="h-4 w-4" />{ar ? "حجز موعد" : "New Booking"}
           </Button>
         </div>
@@ -157,18 +241,56 @@ export default function SecretaryClient({ appointments, todayQueue, doctor, pati
 
       {/* Today stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[
-          { label: ar ? "مواعيد اليوم" : "Today", n: todayApts.length, color: "indigo", icon: CalendarPlus },
-          { label: ar ? "في الانتظار" : "Waiting",  n: waiting.length, color: "amber",  icon: Clock },
-          { label: ar ? "مع الطبيب" : "With Doctor", n: (called ? 1 : 0) + (withDoc ? 1 : 0), color: "blue", icon: Stethoscope },
-          { label: ar ? "فحص خارجي" : "On Hold", n: onHold.length, color: "amber", icon: FlaskConical },
-        ].map(({ label, n, color, icon: Icon }) => (
-          <div key={label} className="card p-4">
-            <div className={`mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-${color}-500/10`}>
-              <Icon className={`h-4.5 w-4.5 text-${color}-400`} />
+        {([
+          {
+            label: ar ? "مواعيد اليوم" : "Today's Appointments",
+            n: todayApts.length,
+            icon: CalendarPlus,
+            gradient: "linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%)",
+            iconBg: "rgba(255,255,255,0.18)",
+            glow: "0 8px 32px rgba(99,102,241,0.35)",
+          },
+          {
+            label: ar ? "في الانتظار" : "Waiting",
+            n: waiting.length,
+            icon: Clock,
+            gradient: "linear-gradient(135deg,#f59e0b 0%,#ef4444 100%)",
+            iconBg: "rgba(255,255,255,0.18)",
+            glow: "0 8px 32px rgba(245,158,11,0.35)",
+          },
+          {
+            label: ar ? "مع الطبيب" : "With Doctor",
+            n: (called ? 1 : 0) + (withDoc ? 1 : 0),
+            icon: Stethoscope,
+            gradient: "linear-gradient(135deg,#06b6d4 0%,#3b82f6 100%)",
+            iconBg: "rgba(255,255,255,0.18)",
+            glow: "0 8px 32px rgba(6,182,212,0.35)",
+          },
+          {
+            label: ar ? "فحص خارجي" : "External Test",
+            n: onHold.length,
+            icon: FlaskConical,
+            gradient: "linear-gradient(135deg,#10b981 0%,#059669 100%)",
+            iconBg: "rgba(255,255,255,0.18)",
+            glow: "0 8px 32px rgba(16,185,129,0.35)",
+          },
+        ] as const).map(({ label, n, icon: Icon, gradient, iconBg, glow }) => (
+          <div key={label}
+            className="relative overflow-hidden rounded-2xl p-5 flex flex-col gap-3"
+            style={{ background: gradient, boxShadow: glow }}>
+            {/* decorative circle */}
+            <div className="pointer-events-none absolute -end-4 -top-4 h-24 w-24 rounded-full"
+              style={{ background: "rgba(255,255,255,0.08)" }} />
+            <div className="pointer-events-none absolute -end-8 -bottom-8 h-32 w-32 rounded-full"
+              style={{ background: "rgba(255,255,255,0.06)" }} />
+
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: iconBg }}>
+              <Icon className="h-5 w-5 text-white" />
             </div>
-            <p className="text-2xl font-black text-white">{n}</p>
-            <p className="text-xs text-slate-500 mt-0.5">{label}</p>
+            <div>
+              <p className="text-3xl font-black text-white leading-none">{n}</p>
+              <p className="text-xs font-medium mt-1.5" style={{ color: "rgba(255,255,255,0.75)" }}>{label}</p>
+            </div>
           </div>
         ))}
       </div>
@@ -196,8 +318,8 @@ export default function SecretaryClient({ appointments, todayQueue, doctor, pati
 
       {/* On Hold patients alert */}
       {onHold.length > 0 && (
-        <div className="card overflow-hidden border-amber-500/20">
-          <div className="flex items-center gap-2 px-5 py-3 border-b border-[#1e2536] bg-amber-500/8">
+        <div className="card overflow-hidden" style={{ background: "rgba(245,158,11,.06)", borderColor: "rgba(245,158,11,.3)" }}>
+          <div className="flex items-center gap-2 px-5 py-3 border-b border-amber-500/20" style={{ background: "linear-gradient(90deg,rgba(245,158,11,.12),rgba(239,68,68,.06))" }}>
             <FlaskConical className="h-4 w-4 text-amber-400" />
             <span className="text-sm font-semibold text-amber-300">{ar ? "مرضى في انتظار فحص خارجي" : "Patients Waiting for External Test"}</span>
             <span className="ms-auto rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-400 font-bold">{onHold.length}</span>
@@ -310,7 +432,7 @@ export default function SecretaryClient({ appointments, todayQueue, doctor, pati
         <div className="card p-14 text-center">
           <CalendarPlus className="h-10 w-10 mx-auto mb-3 text-slate-700" />
           <p className="text-slate-500 text-sm mb-4">{ar ? "لا توجد مواعيد" : "No appointments"}</p>
-          <Button variant="outline" size="sm" onClick={() => setBookingOpen(true)}>
+          <Button variant="outline" size="sm" onClick={() => { resetBookingForm(); setBookingOpen(true); }}>
             {ar ? "إضافة موعد" : "Add appointment"}
           </Button>
         </div>
@@ -322,11 +444,12 @@ export default function SecretaryClient({ appointments, todayQueue, doctor, pati
             const isCollapsed = collapsedDays[dateKey];
 
             return (
-              <div key={dateKey} className="card overflow-hidden">
+              <div key={dateKey} className="card overflow-hidden" style={{ background: isToday ? "linear-gradient(135deg,rgba(99,102,241,.12) 0%,rgba(139,92,246,.07) 100%)" : "rgba(99,102,241,.06)", borderColor: isToday ? "rgba(99,102,241,.35)" : "rgba(99,102,241,.2)" }}>
                 {/* Day header */}
                 <button
                   onClick={() => toggleDay(dateKey)}
-                  className="w-full flex items-center justify-between px-5 py-3.5 border-b border-[#1e2536] hover:bg-white/2 transition-colors"
+                  className="w-full flex items-center justify-between px-5 py-3.5 border-b hover:bg-white/3 transition-colors"
+                  style={{ borderBottomColor: isToday ? "rgba(99,102,241,.28)" : "rgba(99,102,241,.15)" }}
                 >
                   <div className="flex items-center gap-3">
                     <div className={`flex h-2 w-2 rounded-full ${isToday ? "bg-emerald-400" : isTomorrow ? "bg-amber-400" : "bg-slate-600"}`} />
@@ -361,6 +484,7 @@ export default function SecretaryClient({ appointments, todayQueue, doctor, pati
                           <th>{ar ? "الحالة" : "Status"}</th>
                           <th>{ar ? "الدفع" : "Payment"}</th>
                           {isToday && <th className="text-center">{ar ? "إجراء" : "Action"}</th>}
+                          <th className="text-center">{ar ? "تعديل" : "Edit"}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -377,18 +501,21 @@ export default function SecretaryClient({ appointments, todayQueue, doctor, pati
                                 ) : <span className="text-slate-600 text-xs">—</span>}
                               </td>
                               <td>
-                                <div className="flex items-center gap-2">
-                                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-700/60 text-slate-300 text-xs font-bold">
-                                    {apt.patient.name[0]}
-                                  </div>
+                                <div className="flex items-center gap-2.5">
+                                  <div className="patient-avatar patient-avatar-sm">{apt.patient.name[0]}</div>
                                   <div>
-                                    <p className="text-sm font-medium text-white">{apt.patient.name}</p>
-                                    <p className="text-xs text-slate-500">{apt.patient.phone}</p>
+                                    <p className="patient-name-primary">{apt.patient.name}</p>
+                                    <p className="patient-name-secondary">{apt.patient.phone}</p>
+                                    {apt.patient.nationalId && (
+                                      <p className="font-mono text-[11px] text-amber-400/80 flex items-center gap-0.5 mt-0.5">
+                                        🪪 {apt.patient.nationalId}
+                                      </p>
+                                    )}
                                   </div>
                                 </div>
                               </td>
                               <td className="font-medium text-slate-300 text-sm tabular-nums">
-                                {formatTime(apt.date)}
+                                {formatTime(apt.date, ar)}
                                 {apt.source === "online" && (
                                   <span className="ms-1.5 inline-flex items-center rounded-full border border-cyan-500/30 bg-cyan-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-cyan-400">
                                     {ar ? "أونلاين" : "Online"}
@@ -448,6 +575,24 @@ export default function SecretaryClient({ appointments, todayQueue, doctor, pati
                                   </div>
                                 </td>
                               )}
+                              <td>
+                                <div className="flex items-center justify-center gap-1">
+                                  <button
+                                    onClick={() => openEditModal(apt)}
+                                    className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-indigo-400 hover:bg-indigo-500/10 transition-colors"
+                                    aria-label={ar ? "تعديل" : "Edit"}
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => setDeleteAptId(apt.id)}
+                                    className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                                    aria-label={ar ? "حذف" : "Delete"}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </td>
                             </tr>
                           );
                         })}
@@ -501,23 +646,38 @@ export default function SecretaryClient({ appointments, todayQueue, doctor, pati
       {editApt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={() => setEditApt(null)} />
-          <div className="relative w-full max-w-md rounded-2xl border border-white/8 bg-[#0f1629] shadow-2xl p-6 animate-fade-up space-y-4 max-h-[90vh] overflow-y-auto">
+          <div className={`relative w-full max-w-md rounded-2xl border border-white/8 bg-[#0f1629] shadow-2xl p-6 animate-fade-up space-y-4 max-h-[90vh] ${SCROLL_CONTAINER} pb-[calc(3rem+env(safe-area-inset-bottom,0px))]`}>
             <h3 className="text-sm font-semibold text-white">{ar ? "تعديل الموعد وبيانات المريض" : "Edit Appointment & Patient Info"}</h3>
             <p className="text-xs text-amber-400 flex items-center gap-1.5">
               <AlertCircle className="h-3.5 w-3.5" />
               {ar ? "سيظهر للطبيب أن السكرتير قام بالتعديل" : "Doctor will be notified this was edited by secretary"}
             </p>
+            {editError && (
+              <div className="flex items-center gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-400">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />{editError}
+              </div>
+            )}
             <form onSubmit={async (e) => {
               e.preventDefault();
               setLoading(true);
+              setEditError("");
               const fd = new FormData(e.currentTarget);
               // Update appointment
-              await secretaryEditAppointment(editApt.id, doctorId, secretaryUserId ?? "", {
-                date: fd.get("date") as string || undefined,
-                time: fd.get("time") as string || undefined,
+              const result = await secretaryEditAppointment(editApt.id, doctorId, secretaryUserId ?? "", {
+                date: editDate || undefined,
+                time: editTime || undefined,
                 type: fd.get("type") as string || undefined,
                 notes: fd.get("notes") as string || undefined,
               });
+              if (!result.success) {
+                setLoading(false);
+                setEditError(
+                  result.error === "slot_taken"
+                    ? (ar ? "هذا الوقت محجوز مسبقاً، الرجاء اختيار وقت آخر" : "This time slot is already booked, please choose another")
+                    : (ar ? "حدث خطأ أثناء الحفظ" : "An error occurred while saving")
+                );
+                return;
+              }
               // Update patient info via API
               const patientId = editApt.patient.id;
               const phone = fd.get("patPhone") as string;
@@ -540,12 +700,11 @@ export default function SecretaryClient({ appointments, todayQueue, doctor, pati
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="form-label">{ar ? "التاريخ" : "Date"}</label>
-                  <input type="date" name="date" defaultValue={new Date(editApt.date).toISOString().split("T")[0]} className="form-input text-sm" dir="ltr" />
+                  <input type="date" value={editDate} onChange={(e) => { setEditDate(e.target.value); setEditTime(""); }} className="form-input text-sm" dir="ltr" />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="form-label">{ar ? "الوقت" : "Time"}</label>
-                  <input type="time" name="time" defaultValue={`${new Date(editApt.date).getHours().toString().padStart(2,"0")}:${new Date(editApt.date).getMinutes().toString().padStart(2,"0")}`} className="form-input text-sm" dir="ltr" />
-                </div>
+                <TimeSlotSelect doctorId={doctorId} date={editDate} locale={locale}
+                  value={editTime} onChange={setEditTime} excludeAppointmentId={editApt.id}
+                  label={ar ? "الوقت" : "Time"} className="form-input text-sm" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
@@ -624,32 +783,159 @@ export default function SecretaryClient({ appointments, todayQueue, doctor, pati
       )}
 
       {/* Booking Modal */}
-      <Modal isOpen={bookingOpen} onClose={() => setBookingOpen(false)}
+      <Modal isOpen={bookingOpen} onClose={() => { setBookingOpen(false); resetBookingForm(); }}
         title={ar ? "حجز موعد جديد" : "New Appointment Booking"} size="lg"
         footer={<>
-          <Button variant="secondary" onClick={() => setBookingOpen(false)} disabled={loading}>{ar ? "إلغاء" : "Cancel"}</Button>
+          <Button variant="secondary" onClick={() => { setBookingOpen(false); resetBookingForm(); }} disabled={loading}>{ar ? "إلغاء" : "Cancel"}</Button>
           <Button type="submit" form="book-form" loading={loading}>{ar ? "تأكيد الحجز" : "Confirm Booking"}</Button>
         </>}>
         <form id="book-form" onSubmit={handleBook} className="space-y-4">
-          <div className="rounded-xl bg-indigo-500/8 border border-indigo-500/20 p-4 space-y-3">
+          {bookError && (
+            <div className="flex items-center gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-400">
+              <AlertCircle className="h-4 w-4 shrink-0" />{bookError}
+            </div>
+          )}
+
+          {/* ── Patient info section ──────────────────────────── */}
+          <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/8 p-4 space-y-3">
             <p className="text-xs font-semibold text-indigo-400 uppercase tracking-wider">{ar ? "بيانات المريض" : "Patient Info"}</p>
-            <div className="grid grid-cols-2 gap-3">
-              <Input name="patientName" label={ar ? "اسم المريض" : "Patient Name"} required placeholder="محمد الأحمدي" />
+
+            {/* National ID FIRST — primary identifier, triggers auto-lookup */}
+            <div>
+              <label className="form-label flex items-center gap-1.5">
+                <CreditCard className="h-3 w-3 text-amber-400" />
+                {ar ? "رقم الهوية الوطنية *" : "National ID *"}
+                {lookingUp && <RefreshCw className="h-3 w-3 animate-spin text-indigo-400" />}
+                {!lookingUp && foundPatient && (
+                  <span className="text-[10px] text-emerald-400 font-medium">✓ {ar ? "تم التعرف على المريض" : "Patient found"}</span>
+                )}
+              </label>
+              <input
+                required
+                dir="ltr"
+                value={bookNationalId}
+                onChange={(e) => {
+                  setBookNationalId(e.target.value);
+                  // reset dependent fields only if user is clearing/changing
+                  if (!e.target.value.trim()) {
+                    setFoundPatient(null);
+                    setBookName(""); setBookPhone(""); setBookGender("");
+                  }
+                }}
+                className="form-input w-full font-mono tracking-widest"
+                placeholder={ar ? "أدخل رقم الهوية للبحث..." : "Enter national ID to search..."}
+                autoComplete="off"
+                autoFocus
+              />
+              {!foundPatient && bookNationalId.trim().length >= 3 && !lookingUp && (
+                <p className="mt-1 text-[11px] text-slate-500 flex items-center gap-1">
+                  <span className="h-1.5 w-1.5 rounded-full bg-slate-500 inline-block" />
+                  {ar ? "مريض جديد — سيتم إنشاء ملفه تلقائياً" : "New patient — record will be created automatically"}
+                </p>
+              )}
             </div>
+
+            {/* ── Returning patient banner ──────────────────── */}
+            {foundPatient && (
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/8 p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-black shrink-0">
+                    {foundPatient.visitCount + 1}
+                  </span>
+                  <div>
+                    <p className="text-xs font-bold text-emerald-400">
+                      {ar ? `مريض متكرر — الزيارة رقم ${foundPatient.visitCount + 1}` : `Returning patient — visit #${foundPatient.visitCount + 1}`}
+                    </p>
+                    <p className="text-[11px] text-emerald-400/60">
+                      {ar ? `إجمالي الزيارات المكتملة: ${foundPatient.visitCount}` : `Total completed visits: ${foundPatient.visitCount}`}
+                    </p>
+                  </div>
+                </div>
+                {foundPatient.lastVisit && (
+                  <div className="rounded-lg border border-emerald-500/15 bg-black/10 px-3 py-2 space-y-1">
+                    <p className="text-[10px] font-semibold text-emerald-400/70 flex items-center gap-1">
+                      <History className="h-3 w-3 shrink-0" />
+                      {ar ? "آخر زيارة" : "Last visit"} ·{" "}
+                      {new Date(foundPatient.lastVisit.date).toLocaleDateString(ar ? "ar-IQ" : "en-US", { year: "numeric", month: "short", day: "numeric" })}
+                      <span className="ms-1 opacity-50">#{foundPatient.lastVisit.appointmentNumber}</span>
+                    </p>
+                    {foundPatient.lastVisit.diagnosis && (
+                      <p className="text-[11px]" style={{ color: "var(--text-2)" }}>
+                        <span className="text-slate-500">{ar ? "التشخيص: " : "Dx: "}</span>
+                        {foundPatient.lastVisit.diagnosis}
+                      </p>
+                    )}
+                    {foundPatient.lastVisit.prescription && (
+                      <p className="text-[11px]" style={{ color: "var(--text-3)" }}>
+                        <span className="text-slate-500">{ar ? "الوصفة: " : "Rx: "}</span>
+                        {foundPatient.lastVisit.prescription}
+                      </p>
+                    )}
+                    {!foundPatient.lastVisit.diagnosis && !foundPatient.lastVisit.prescription && foundPatient.lastVisit.notes && (
+                      <p className="text-[11px]" style={{ color: "var(--text-3)" }}>{foundPatient.lastVisit.notes}</p>
+                    )}
+                  </div>
+                )}
+                <p className="text-[10px] text-slate-500">
+                  ✓ {ar ? "تم تعبئة البيانات تلقائياً — يمكنك التعديل قبل الحجز" : "Fields auto-filled — you can edit before confirming"}
+                </p>
+              </div>
+            )}
+
+            {/* Name + Phone */}
             <div className="grid grid-cols-2 gap-3">
-              <Input name="patientPhone" type="tel" label={ar ? "الجوال" : "Phone"} required placeholder="+966 5x xxx xxxx" />
-              <Select name="patientGender" label={ar ? "الجنس" : "Gender"} options={genderOpts} placeholder={ar ? "اختر" : "Select"} required />
+              <div>
+                <label className="form-label">{ar ? "اسم المريض *" : "Patient Name *"}</label>
+                <input
+                  required
+                  value={bookName}
+                  onChange={(e) => setBookName(e.target.value)}
+                  className="form-input w-full"
+                  placeholder={ar ? "محمد أحمد" : "Patient name"}
+                />
+              </div>
+              <div>
+                <label className="form-label flex items-center gap-1.5">
+                  <Phone className="h-3 w-3" />
+                  {ar ? "رقم الهاتف *" : "Phone *"}
+                </label>
+                <input
+                  required
+                  dir="ltr"
+                  type="tel"
+                  value={bookPhone}
+                  onChange={(e) => setBookPhone(e.target.value)}
+                  className="form-input w-full"
+                  placeholder="07XXXXXXXXX"
+                />
+              </div>
             </div>
-            <p className="text-xs text-slate-500">
-              {ar ? "⚡ سيتم إنشاء ملف مريض جديد تلقائياً إذا لم يكن موجوداً" : "⚡ Patient record auto-created if not found"}
-            </p>
+
+            {/* Gender */}
+            <div>
+              <label className="form-label">{ar ? "الجنس *" : "Gender *"}</label>
+              <select
+                required
+                value={bookGender}
+                onChange={(e) => setBookGender(e.target.value)}
+                className="form-input w-full"
+              >
+                <option value="">{ar ? "اختر الجنس" : "Select gender"}</option>
+                <option value="male">{ar ? "ذكر" : "Male"}</option>
+                <option value="female">{ar ? "أنثى" : "Female"}</option>
+              </select>
+            </div>
           </div>
-          <div className="rounded-xl bg-slate-800/40 border border-[#2a3347] p-4 space-y-3">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{ar ? "تفاصيل الموعد" : "Appointment Details"}</p>
+
+          {/* ── Appointment details ──────────────────────────── */}
+          <div className="rounded-xl border border-white/8 p-4 space-y-3" style={{ background: "var(--bg-surface)" }}>
+            <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-3)" }}>{ar ? "تفاصيل الموعد" : "Appointment Details"}</p>
             <div className="grid grid-cols-2 gap-3">
               <Input name="date" type="date" label={ar ? "التاريخ" : "Date"} required
-                defaultValue={new Date().toISOString().split("T")[0]} />
-              <Input name="time" type="time" label={ar ? "الوقت" : "Time"} required />
+                value={bookDate} onChange={(e) => { setBookDate(e.target.value); setBookTime(""); }} />
+              <TimeSlotSelect doctorId={doctorId} date={bookDate} locale={locale}
+                value={bookTime} onChange={setBookTime} name="time"
+                label={ar ? "الوقت" : "Time"} required />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <Select name="type" label={ar ? "نوع الزيارة" : "Type"} options={typeOpts} defaultValue="consultation" />

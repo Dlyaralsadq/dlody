@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-
+import PatientLayoutContent from "./components/PatientLayoutContent";
 export async function generateMetadata({
   params,
 }: {
@@ -8,13 +8,13 @@ export async function generateMetadata({
   const { locale } = await params;
   const ar = locale === "ar";
   return {
-    title: ar ? "ابحث عن طبيبك — ClinicPro" : "Find Your Doctor — ClinicPro",
+    title: ar ? "طبيبي — المريض" : "Tabibee — Patient",
     description: ar
-      ? "ابحث عن طبيب في العراق حسب التخصص والموقع واحجز موعدك أونلاين"
-      : "Find a doctor in Iraq by specialty and location, book your appointment online",
+      ? "تابع أطباءك، اكتشف منشورات طبية، واحجز موعدك"
+      : "Follow doctors, discover medical posts, and book appointments",
   };
 }
 
 export default function PatientLayout({ children }: { children: React.ReactNode }) {
-  return children;
+  return <PatientLayoutContent>{children}</PatientLayoutContent>;
 }

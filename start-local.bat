@@ -9,8 +9,13 @@ echo.
 echo   ClinicPro
 echo   ========
 echo.
+echo   يعمل خارج Cursor - انقر مرتين من مستكشف الملفات
+echo.
 echo   سيفتح المتصفح بعد جاهزية الخادم
-echo   الرابط: http://127.0.0.1:3000/ar
+echo   على هذا الجهاز: http://127.0.0.1:3000/ar
+echo   من جهاز آخر (نفس Wi-Fi): http://IP-الجهاز:3000/ar
+echo.
+echo   لارسال الرابط لصديق (اي مكان): شغّل start-share.bat
 echo.
 
 where node >nul 2>&1

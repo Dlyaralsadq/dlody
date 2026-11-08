@@ -3,6 +3,8 @@ import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
 import Button from "./Button";
+import ScrollSpacer from "./ScrollSpacer";
+import { SCROLL_CONTAINER } from "@/lib/scrollUi";
 
 interface ModalProps {
   isOpen: boolean; onClose: () => void; title?: string;
@@ -26,10 +28,9 @@ export default function Modal({ isOpen, onClose, title, children, size="md", foo
       <div className="absolute inset-0 bg-black/75 backdrop-blur-md" />
 
       {/* Modal container — flex column with max height */}
-      <div className={cn("relative w-full animate-fade-up flex flex-col", sizes[size])}
-        style={{ maxHeight: "90vh" }}>
-        <div className="rounded-2xl border border-white/8 bg-[#0f1629] shadow-2xl flex flex-col overflow-hidden"
-          style={{ maxHeight: "90vh" }}>
+      <div className={cn("relative w-full animate-fade-up flex flex-col", sizes[size])}>
+        <div className="rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+          style={{ border: "1px solid var(--border)", background: "var(--bg-surface)", maxHeight: "90vh" }}>
 
           {/* Header — fixed */}
           {title && (
@@ -42,13 +43,15 @@ export default function Modal({ isOpen, onClose, title, children, size="md", foo
           )}
 
           {/* Body — scrollable */}
-          <div className="flex-1 overflow-y-auto px-6 py-5">
+          <div className={cn("flex-1 px-6 py-5", SCROLL_CONTAINER)}>
             {children}
+            <ScrollSpacer variant="modal" />
           </div>
 
           {/* Footer — fixed at bottom */}
           {footer && (
-            <div className="flex items-center justify-end gap-3 border-t border-white/6 px-6 py-4 shrink-0 bg-[#0f1629]">
+            <div className="flex items-center justify-end gap-3 px-6 py-4 shrink-0"
+              style={{ borderTop: "1px solid var(--border)", background: "var(--bg-surface)" }}>
               {footer}
             </div>
           )}

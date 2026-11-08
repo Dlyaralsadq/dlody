@@ -1,6 +1,6 @@
 {
-  "name": "ClinicPro — طبيبك في العراق",
-  "short_name": "ClinicPro",
+  "name": "طبيبي — tabibee.com",
+  "short_name": "طبيبي",
   "description": "ابحث عن طبيب، احجز موعدك، تابع مواعيدك",
   "start_url": "/ar/patient",
   "scope": "/",

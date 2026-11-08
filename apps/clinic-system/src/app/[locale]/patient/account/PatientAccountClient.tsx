@@ -71,16 +71,15 @@ export default function PatientAccountClient({
   };
 
   return (
-    <div className="max-w-lg mx-auto space-y-6 pb-10">
+    <div className="space-y-6 pb-10">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-black text-white">{ar ? `مرحباً، ${userName}` : `Hello, ${userName}`}</h1>
-          <p className="text-xs text-white/40 mt-0.5" dir="ltr">{phone}</p>
+          <h1 className="text-xl font-black" style={{ color: "var(--text-1)" }}>{ar ? `مرحباً، ${userName}` : `Hello, ${userName}`}</h1>
+          <p className="text-xs mt-0.5" style={{ color: "var(--text-3)" }} dir="ltr">{phone}</p>
         </div>
-        <button
-          onClick={handleLogout}
-          className="text-xs px-3 py-1.5 rounded-full border border-white/10 text-white/50 hover:text-white"
-        >
+        <button onClick={handleLogout}
+          className="text-xs px-3 py-1.5 rounded-full transition"
+          style={{ border: "1px solid var(--border)", color: "var(--text-3)" }}>
           {ar ? "خروج" : "Logout"}
         </button>
       </div>
@@ -93,13 +92,13 @@ export default function PatientAccountClient({
         {ar ? "ابحث عن طبيب واحجز" : "Find a doctor & book"}
       </Link>
 
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+        <section className="space-y-3">
+        <h2 className="text-sm font-semibold flex items-center gap-2" style={{ color: "var(--text-1)" }}>
           <Calendar size={15} className="text-cyan-400" />
           {ar ? "مواعيدي القادمة" : "Upcoming appointments"}
         </h2>
         {upcoming.length === 0 ? (
-          <p className="text-xs text-white/30 rounded-xl border border-white/8 p-4 text-center">
+          <p className="text-xs rounded-xl p-4 text-center" style={{ color: "var(--text-3)", border: "1px solid var(--border)" }}>
             {ar ? "لا توجد مواعيد قادمة" : "No upcoming appointments"}
           </p>
         ) : (
@@ -107,20 +106,21 @@ export default function PatientAccountClient({
             const st = statusLabel(apt.status);
             const d = new Date(apt.date);
             return (
-              <div key={apt.id} className="rounded-2xl border border-white/8 bg-white/3 p-4 space-y-2">
+              <div key={apt.id} className="rounded-2xl p-4 space-y-2"
+                style={{ border: "1px solid var(--border)" }}>
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <p className="font-bold text-white text-sm">{ar ? apt.doctor.nameAr : apt.doctor.name}</p>
+                    <p className="font-bold text-sm" style={{ color: "var(--text-1)" }}>{ar ? apt.doctor.nameAr : apt.doctor.name}</p>
                     <p className="text-xs text-cyan-400">{ar ? apt.doctor.specialty.nameAr : apt.doctor.specialty.name}</p>
                   </div>
                   <span className={`text-[10px] font-semibold ${st.cls}`}>{st.label}</span>
                 </div>
-                <p className="text-xs text-white/50 flex items-center gap-1.5">
+                <p className="text-xs flex items-center gap-1.5" style={{ color: "var(--text-3)" }}>
                   <Clock size={12} />
                   {format(d, "EEEE d MMM yyyy — HH:mm", ar ? { locale: arLocale } : undefined)}
                 </p>
                 {apt.doctor.clinicAddress && (
-                  <p className="text-xs text-white/40 flex items-start gap-1.5">
+                  <p className="text-xs flex items-start gap-1.5" style={{ color: "var(--text-3)" }}>
                     <MapPin size={12} className="shrink-0 mt-0.5" />
                     {apt.doctor.clinicAddress}
                   </p>
@@ -134,11 +134,8 @@ export default function PatientAccountClient({
                   <Link href={`/${locale}/patient/doctor/${apt.doctor.id}`} className="text-xs text-indigo-400">
                     {ar ? "تفاصيل الطبيب" : "Doctor profile"}
                   </Link>
-                  <button
-                    onClick={() => handleCancel(apt.id)}
-                    disabled={cancelling === apt.id}
-                    className="ms-auto flex items-center gap-1 text-xs text-rose-400 disabled:opacity-50"
-                  >
+                  <button onClick={() => handleCancel(apt.id)} disabled={cancelling === apt.id}
+                    className="ms-auto flex items-center gap-1 text-xs text-rose-400 disabled:opacity-50">
                     <XCircle size={12} />
                     {ar ? "إلغاء" : "Cancel"}
                   </button>
@@ -150,17 +147,18 @@ export default function PatientAccountClient({
       </section>
 
       {past.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-white/60 flex items-center gap-2">
+          <section className="space-y-3">
+          <h2 className="text-sm font-semibold flex items-center gap-2" style={{ color: "var(--text-3)" }}>
             <Stethoscope size={15} />
             {ar ? "سجل المواعيد" : "Past appointments"}
           </h2>
           {past.slice(0, 10).map((apt) => {
             const st = statusLabel(apt.status);
             return (
-              <div key={apt.id} className="rounded-xl border border-white/5 bg-white/2 px-4 py-3 opacity-70">
-                <p className="text-xs font-semibold text-white">{ar ? apt.doctor.nameAr : apt.doctor.name}</p>
-                <p className="text-[10px] text-white/40">{format(new Date(apt.date), "d MMM yyyy HH:mm")} · <span className={st.cls}>{st.label}</span></p>
+              <div key={apt.id} className="flex items-center justify-between rounded-xl px-4 py-3 opacity-70"
+                style={{ border: "1px solid var(--border)" }}>
+                <p className="text-xs font-semibold" style={{ color: "var(--text-1)" }}>{ar ? apt.doctor.nameAr : apt.doctor.name}</p>
+                <p className="text-[10px]" style={{ color: "var(--text-3)" }}>{format(new Date(apt.date), "d MMM yyyy HH:mm")} · <span className={st.cls}>{st.label}</span></p>
               </div>
             );
           })}

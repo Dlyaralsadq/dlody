@@ -5,7 +5,7 @@ import { getPatient } from "@/app/actions/patients";
 import { notFound } from "next/navigation";
 import { calculateAge, formatDate, formatTime, getStatusColor } from "@/lib/utils";
 import Link from "next/link";
-import { ArrowRight, Calendar, Mail, Phone, User, Droplets, Shield, Heart } from "lucide-react";
+import { ArrowRight, Calendar, Mail, Phone, User, Droplets, Shield, Heart, Pill, FileText } from "lucide-react";
 import Badge, { getAppointmentStatusVariant } from "@/components/ui/Badge";
 
 export default async function PatientDetailPage({
@@ -155,10 +155,13 @@ export default async function PatientDetailPage({
               </div>
             )}
 
-            <div className="card p-5">
-              <h2 className="font-semibold text-gray-900 mb-3">{tc("total")}</h2>
-              <div className="text-3xl font-bold text-blue-600">{patient.appointments.length}</div>
-              <p className="text-sm text-gray-500">{t("appointments")}</p>
+            <div className="relative overflow-hidden rounded-2xl p-5"
+              style={{ background: "linear-gradient(135deg,#6366f1,#8b5cf6)", boxShadow: "0 8px 28px rgba(99,102,241,.35)" }}>
+              <div className="pointer-events-none absolute -end-4 -top-4 h-24 w-24 rounded-full" style={{ background: "rgba(255,255,255,.08)" }} />
+              <div className="pointer-events-none absolute -end-8 -bottom-6 h-28 w-28 rounded-full" style={{ background: "rgba(255,255,255,.05)" }} />
+              <p className="text-xs font-semibold mb-3" style={{ color: "rgba(255,255,255,.7)" }}>{tc("total")}</p>
+              <div className="text-4xl font-black text-white leading-none">{patient.appointments.length}</div>
+              <p className="text-xs font-medium mt-2" style={{ color: "rgba(255,255,255,.7)" }}>{t("appointments")}</p>
             </div>
           </div>
         </div>
@@ -181,6 +184,8 @@ export default async function PatientDetailPage({
                     <th>{ta("doctor")}</th>
                     <th>{ta("type")}</th>
                     <th>{ta("status")}</th>
+                    <th>{locale === "ar" ? "التشخيص" : "Diagnosis"}</th>
+                    <th>{locale === "ar" ? "الوصفة الطبية" : "Prescription"}</th>
                     <th>{tc("notes")}</th>
                   </tr>
                 </thead>
@@ -201,7 +206,29 @@ export default async function PatientDetailPage({
                           {appointmentStatusMap[apt.status] ?? apt.status}
                         </Badge>
                       </td>
-                      <td className="text-sm text-gray-500">{apt.notes ?? "—"}</td>
+                      <td className="text-sm text-gray-700 max-w-[160px]">
+                        {(apt as any).diagnosis ? (
+                          <div className="rounded-lg bg-blue-50 border border-blue-100 px-2 py-1 text-xs text-blue-800 leading-relaxed">
+                            {(apt as any).diagnosis}
+                          </div>
+                        ) : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="text-sm text-gray-700 max-w-[180px]">
+                        {(apt as any).prescription ? (
+                          <div className="rounded-lg bg-purple-50 border border-purple-100 px-2 py-1 text-xs text-purple-800 leading-relaxed flex items-start gap-1">
+                            <Pill className="h-3 w-3 mt-0.5 shrink-0 text-purple-500" />
+                            <span>{(apt as any).prescription}</span>
+                          </div>
+                        ) : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="text-sm text-gray-500 max-w-[160px]">
+                        {(apt as any).notes ? (
+                          <div className="flex items-start gap-1 text-xs">
+                            <FileText className="h-3 w-3 mt-0.5 shrink-0 text-gray-400" />
+                            <span>{(apt as any).notes}</span>
+                          </div>
+                        ) : <span className="text-gray-300">—</span>}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

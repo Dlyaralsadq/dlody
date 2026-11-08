@@ -167,8 +167,13 @@ export default function AppointmentsClient({ appointments, patients, doctors, lo
                       <span className="font-mono text-xs text-gray-500">{apt.appointmentNumber}</span>
                     </td>
                     <td>
-                      <p className="font-medium text-gray-900">{apt.patient.name}</p>
-                      <p className="text-xs text-gray-400">{apt.patient.phone}</p>
+                      <div className="flex items-center gap-3">
+                        <div className="patient-avatar patient-avatar-sm">{apt.patient.name[0]}</div>
+                        <div>
+                          <p className="patient-name-primary">{apt.patient.name}</p>
+                          <p className="patient-name-secondary">{apt.patient.phone}</p>
+                        </div>
+                      </div>
                     </td>
                     <td>
                       <p className="font-medium text-gray-800">

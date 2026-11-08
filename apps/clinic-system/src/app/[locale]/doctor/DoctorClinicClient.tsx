@@ -8,11 +8,12 @@ import {
   CheckCircle2, Clock, FileText, Phone, Activity,
   PlayCircle, Monitor, Calendar, NotebookPen,
   AlertCircle, DoorOpen, CheckCheck, Banknote,
-  FlaskConical, ChevronDown, ArrowRightCircle
+  FlaskConical, ChevronDown, ArrowRightCircle, CreditCard
 } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Textarea from "@/components/ui/Textarea";
+import DoctorAvatar from "@/components/ui/DoctorAvatar";
 import { callNextPatient, confirmPatientEntry, completeAppointment, holdPatientForTest, callOnHoldPatient } from "@/app/actions/clinic";
 import { formatTime } from "@/lib/utils";
 import type { SpecialtyConfig } from "@/lib/specialtyConfig";
@@ -24,7 +25,8 @@ interface Appointment {
   holdReason?: string | null;
   returnedFromTest?: boolean;
   diagnosis: string | null; prescription: string | null; notes: string | null;
-  patient: { id: string; name: string; nameAr: string | null; phone: string; bloodType: string | null; };
+  patient: { id: string; name: string; nameAr: string | null; phone: string; bloodType: string | null; nationalId: string | null; };
+  patientNationalId?: string | null;
 }
 
 const typeLabel = (type: string, ar: boolean) => ({
@@ -70,6 +72,7 @@ export default function DoctorClinicClient({ doctor, queue, deletedBySecretary =
     setSaving(true);
     const fd = new FormData(e.currentTarget);
     await completeAppointment(activeApt.id, doctor.id, {
+      diagnosis: fd.get("diagnosis") as string,
       prescription: fd.get("prescription") as string,
       notes: fd.get("notes") as string,
     });
@@ -100,28 +103,29 @@ export default function DoctorClinicClient({ doctor, queue, deletedBySecretary =
         <div className="bg-gradient-to-r from-[#1e1b4b] via-[#1a1f5e] to-[#0f172a] px-5 py-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/30 border border-indigo-500/30 text-white text-lg font-black overflow-hidden">
-                {doctor.logoUrl ? (
-                  <img src={doctor.logoUrl} alt="logo" className="h-full w-full object-cover" />
-                ) : (
-                  doctor.name[0]
-                )}
-              </div>
+              <DoctorAvatar
+                logoUrl={doctor.logoUrl}
+                specialtyId={doctor.specialtyId}
+                name={doctor.name}
+                size="md"
+              />
               <div>
                 <p className="font-bold text-white">{ar ? doctor.nameAr : doctor.name}</p>
                 <p className="text-xs text-indigo-300">{ar ? doctor.specialty.nameAr : doctor.specialty.name}</p>
               </div>
             </div>
             {/* Quick stats row */}
-            <div className="flex items-center gap-3 text-xs">
-              {[
-                { n: waiting.length,  label: ar ? "انتظار" : "Waiting",  color: "text-amber-400" },
-                { n: onHold.length,   label: ar ? "فحص خارجي" : "On Hold", color: "text-orange-400" },
-                { n: pending.length,  label: ar ? "لم يصلوا" : "Pending",  color: "text-slate-500" },
-              ].map(({ n, label, color }) => (
-                <div key={label} className="flex items-center gap-1.5 rounded-lg bg-white/8 px-3 py-1.5">
-                  <span className={`text-base font-black ${color}`}>{n}</span>
-                  <span className="text-slate-400">{label}</span>
+            <div className="flex items-center gap-2.5 text-xs flex-wrap">
+              {([
+                { n: waiting.length, label: ar ? "انتظار" : "Waiting",    gradient: "linear-gradient(135deg,#f59e0b,#ef4444)", glow: "rgba(245,158,11,.25)" },
+                { n: onHold.length,  label: ar ? "فحص خارجي" : "On Hold", gradient: "linear-gradient(135deg,#10b981,#059669)", glow: "rgba(16,185,129,.25)" },
+                { n: pending.length, label: ar ? "لم يصلوا" : "Pending",  gradient: "linear-gradient(135deg,#6366f1,#4f46e5)", glow: "rgba(99,102,241,.25)"  },
+              ] as const).map(({ n, label, gradient, glow }) => (
+                <div key={label}
+                  className="relative overflow-hidden flex items-center gap-2 rounded-xl px-3 py-1.5"
+                  style={{ background: gradient, boxShadow: `0 4px 14px ${glow}` }}>
+                  <span className="text-base font-black text-white leading-none">{n}</span>
+                  <span className="text-white/75 font-medium">{label}</span>
                 </div>
               ))}
               <div className="hidden sm:flex gap-2 ms-2">
@@ -166,15 +170,15 @@ export default function DoctorClinicClient({ doctor, queue, deletedBySecretary =
 
           {/* Current patient card */}
           {current ? (
-            <div className="card overflow-hidden">
-              <div className="bg-blue-600/12 border-b border-blue-500/20 px-5 py-3 flex items-center gap-2">
+            <div className="card overflow-hidden" style={{ background: "linear-gradient(135deg, rgba(99,102,241,.13) 0%, rgba(59,130,246,.08) 100%)", borderColor: "rgba(99,102,241,.35)" }}>
+              <div className="border-b border-indigo-500/25 px-5 py-3 flex items-center gap-2" style={{ background: "linear-gradient(90deg,rgba(99,102,241,.18),rgba(59,130,246,.1))" }}>
                 <Activity className="h-4 w-4 text-blue-400 animate-pulse" />
                 <span className="text-sm font-semibold text-blue-300">{ar ? "المريض الحالي" : "Current Patient"}</span>
                 <span className="ms-auto text-xs text-blue-400/60 font-mono">#{current.queueNumber} · {formatTime(current.date, locale)}</span>
               </div>
               <div className="p-5">
                 <div className="flex items-start gap-4">
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white text-xl font-black shadow-lg shadow-blue-900/30">
+                  <div className="patient-avatar" style={{ width:"3.5rem", height:"3.5rem", fontSize:"1.25rem", borderRadius:"1rem", boxShadow:"0 4px 16px rgba(99,102,241,.45)" }}>
                     {current.patient.name[0]}
                   </div>
                   <div className="flex-1">
@@ -189,9 +193,17 @@ export default function DoctorClinicClient({ doctor, queue, deletedBySecretary =
                         </span>
                       )}
                     </div>
-                    <p className="text-sm text-slate-500 flex items-center gap-1 mt-0.5">
-                      <Phone className="h-3.5 w-3.5" />{current.patient.phone}
-                    </p>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 mt-0.5">
+                      <p className="text-sm text-slate-500 flex items-center gap-1">
+                        <Phone className="h-3.5 w-3.5" />{current.patient.phone}
+                      </p>
+                      {(current.patient.nationalId || (current as any).patientNationalId) && (
+                        <p className="text-sm font-mono font-semibold flex items-center gap-1" style={{ color: "var(--text-2)" }}>
+                          <CreditCard className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                          {current.patient.nationalId || (current as any).patientNationalId}
+                        </p>
+                      )}
+                    </div>
                     {current.reason && (
                       <div className="mt-2 flex items-start gap-2 rounded-xl bg-amber-500/8 border border-amber-500/15 px-3 py-2">
                         <AlertCircle className="h-3.5 w-3.5 shrink-0 text-amber-400 mt-0.5" />
@@ -241,8 +253,8 @@ export default function DoctorClinicClient({ doctor, queue, deletedBySecretary =
 
           {/* Waiting queue */}
           {waiting.length > 0 && (
-            <div className="card overflow-hidden">
-              <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#1e2536]">
+            <div className="card overflow-hidden" style={{ background: "rgba(99,102,241,.06)", borderColor: "rgba(99,102,241,.22)" }}>
+              <div className="flex items-center justify-between px-5 py-3.5 border-b border-amber-500/20" style={{ background: "linear-gradient(90deg,rgba(245,158,11,.1),rgba(239,68,68,.06))" }}>
                 <h2 className="text-sm font-semibold text-white flex items-center gap-2">
                   <Clock className="h-4 w-4 text-amber-400" />
                   {ar ? "قائمة الانتظار" : "Waiting Queue"}
@@ -279,9 +291,22 @@ export default function DoctorClinicClient({ doctor, queue, deletedBySecretary =
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-slate-500">{apt.patient.phone}</p>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-slate-500">{apt.patient.phone}</span>
+                        {(apt.patient.nationalId || (apt as any).patientNationalId) && (
+                          <span className="font-mono text-[11px] font-semibold flex items-center gap-0.5" style={{ color: "var(--text-3)" }}>
+                            <CreditCard className="h-3 w-3 text-amber-400/70 shrink-0" />
+                            {apt.patient.nationalId || (apt as any).patientNationalId}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-xs text-slate-500 font-mono shrink-0">{formatTime(apt.date, locale)}</p>
+                    <span
+                      className="shrink-0 rounded-md bg-indigo-500/10 border border-indigo-500/20 px-2 py-1 text-xs font-bold text-indigo-300"
+                      style={{ fontVariantNumeric: "tabular-nums" }}
+                    >
+                      {formatTime(apt.date, locale)}
+                    </span>
                     {!apt.isPaid && <Banknote className="h-3.5 w-3.5 text-amber-500/50 shrink-0" />}
                   </div>
                 ))}
@@ -294,8 +319,8 @@ export default function DoctorClinicClient({ doctor, queue, deletedBySecretary =
         <div className="space-y-4">
 
           {/* On Hold – patients sent for external test */}
-          <div className="card overflow-hidden">
-            <div className="flex items-center gap-2 px-4 py-3.5 border-b border-[#1e2536]">
+          <div className="card overflow-hidden" style={{ background: "rgba(245,158,11,.05)", borderColor: "rgba(245,158,11,.25)" }}>
+            <div className="flex items-center gap-2 px-4 py-3.5 border-b border-orange-500/20" style={{ background: "linear-gradient(90deg,rgba(245,158,11,.12),rgba(16,185,129,.07))" }}>
               <FlaskConical className="h-4 w-4 text-orange-400" />
               <h2 className="text-sm font-semibold text-white">{ar ? "في فحص خارجي" : "External Test"}</h2>
               <span className={`ms-auto rounded-full px-2 py-0.5 text-xs font-bold ${onHold.length > 0 ? "bg-orange-500/15 border border-orange-500/25 text-orange-400" : "bg-slate-700/50 text-slate-600"}`}>
@@ -308,9 +333,7 @@ export default function DoctorClinicClient({ doctor, queue, deletedBySecretary =
               ) : onHold.map(apt => (
                 <div key={apt.id} className="p-4 space-y-2">
                   <div className="flex items-center gap-2">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-500/15 text-orange-400 text-xs font-bold">
-                      {apt.patient.name[0]}
-                    </div>
+                    <div className="patient-avatar patient-avatar-sm">{apt.patient.name[0]}</div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold text-white truncate">{apt.patient.name}</p>
                       <p className="text-xs text-orange-400/80 flex items-center gap-1">
@@ -330,22 +353,30 @@ export default function DoctorClinicClient({ doctor, queue, deletedBySecretary =
           </div>
 
           {/* Pending – not yet arrived */}
-          <div className="card overflow-hidden">
-            <div className="flex items-center gap-2 px-4 py-3.5 border-b border-[#1e2536]">
-              <Calendar className="h-4 w-4 text-slate-500" />
+          <div className="card overflow-hidden" style={{ background: "rgba(99,102,241,.07)", borderColor: "rgba(99,102,241,.28)" }}>
+            <div className="flex items-center gap-2 px-4 py-3.5 border-b border-indigo-500/25" style={{ background: "linear-gradient(90deg,rgba(99,102,241,.18),rgba(139,92,246,.1))" }}>
+              <Calendar className="h-4 w-4 text-indigo-400" />
               <h2 className="text-sm font-semibold text-white">{ar ? "لم يصلوا بعد" : "Not Arrived"}</h2>
-              <span className="ms-auto rounded-full bg-slate-700/50 px-2 py-0.5 text-xs text-slate-500 font-medium">{pending.length}</span>
+              <span className="ms-auto rounded-full bg-indigo-500/15 border border-indigo-500/20 px-2 py-0.5 text-xs text-indigo-300 font-bold">{pending.length}</span>
             </div>
-            <div className="divide-y divide-[#1e2536] max-h-52 overflow-y-auto">
+            <div className="divide-y divide-[#1e2536] max-h-64 overflow-y-auto">
               {pending.length === 0 ? (
                 <p className="px-5 py-5 text-center text-xs text-slate-700">{ar ? "الجميع وصل" : "All arrived"}</p>
-              ) : pending.map(apt => (
-                <div key={apt.id} className="flex items-center gap-3 px-4 py-2.5">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-800/60 text-slate-600 text-xs font-semibold">
-                    {apt.patient.name[0]}
+              ) : pending
+                  .slice()
+                  .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                  .map((apt, i) => (
+                <div key={apt.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-white/2 transition-colors">
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-800/70 text-[11px] font-bold text-slate-400" style={{ fontVariantNumeric: "tabular-nums" }}>
+                    {i + 1}
                   </div>
-                  <p className="flex-1 text-xs text-slate-400 truncate">{apt.patient.name}</p>
-                  <span className="text-xs text-slate-600 font-mono">{formatTime(apt.date, locale)}</span>
+                  <p className="flex-1 text-xs font-medium text-slate-300 truncate">{apt.patient.name}</p>
+                  <span
+                    className="shrink-0 rounded-md bg-indigo-500/10 border border-indigo-500/20 px-2 py-1 text-[11px] font-bold text-indigo-300"
+                    style={{ fontVariantNumeric: "tabular-nums" }}
+                  >
+                    {formatTime(apt.date, locale)}
+                  </span>
                 </div>
               ))}
             </div>
@@ -407,14 +438,17 @@ export default function DoctorClinicClient({ doctor, queue, deletedBySecretary =
         {activeApt && (
           <form id="consult-form" onSubmit={handleComplete} className="space-y-4">
             <div className="flex items-center gap-3 rounded-xl bg-blue-500/8 border border-blue-500/15 p-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600/20 text-white font-bold">
-                {activeApt.patient.name[0]}
-              </div>
+              <div className="patient-avatar patient-avatar-md">{activeApt.patient.name[0]}</div>
               <div className="flex-1">
                 <p className="font-semibold text-white text-sm">{activeApt.patient.name}</p>
                 <p className="text-xs text-slate-500">{formatTime(activeApt.date, locale)} · {typeLabel(activeApt.type, ar)}</p>
               </div>
             </div>
+            <Textarea name="diagnosis"
+              label={ar ? "التشخيص / الحالة المرضية" : "Diagnosis"}
+              rows={2}
+              defaultValue={activeApt.diagnosis ?? ""}
+              placeholder={ar ? "التشخيص والحالة المرضية..." : "Diagnosis and medical condition..."} />
             <Textarea name="prescription" label={ar ? "الوصفة الطبية" : "Prescription"} rows={3}
               defaultValue={activeApt.prescription ?? ""} placeholder={ar ? "الأدوية والجرعات..." : "Medications and dosages..."} />
             <Textarea name="notes" label={ar ? "ملاحظات" : "Notes"} rows={2}

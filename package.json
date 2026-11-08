@@ -9,17 +9,28 @@
   "scripts": {
     "dev": "npm run dev -w @iraq-clinic/clinic-system",
     "dev:local": "npm run dev:local -w @iraq-clinic/clinic-system",
+    "dev:lan": "npm run dev:lan -w @iraq-clinic/clinic-system",
     "local": "node scripts/local-start.js",
+    "share": "node scripts/share-start.js",
     "setup": "npm install && npm run db:generate && npm run db:deploy && npm run db:seed",
     "build": "npm run db:generate && npm run build -w @iraq-clinic/clinic-system",
     "start": "npm run start -w @iraq-clinic/clinic-system",
     "lint": "npm run lint -w @iraq-clinic/clinic-system",
     "db:generate": "npm run db:generate -w @iraq-clinic/database",
     "db:deploy": "npm run db:deploy -w @iraq-clinic/database",
+    "db:push": "npm run db:push -w @iraq-clinic/database",
     "db:migrate": "npm run db:migrate -w @iraq-clinic/database",
     "db:seed": "npm run db:seed -w @iraq-clinic/database",
     "db:seed-check": "npm run db:seed-check -w @iraq-clinic/database",
     "db:studio": "npm run db:studio -w @iraq-clinic/database",
-    "db:reset": "npm run db:reset -w @iraq-clinic/database"
+    "db:reset": "npm run db:reset -w @iraq-clinic/database",
+    "mobile:setup": "npm install && npm run config:lan -w @iraq-clinic/mobile && npm run cap:sync -w @iraq-clinic/mobile",
+    "mobile:preview": "node scripts/mobile-preview.js",
+    "mobile:sync": "npm run config:lan -w @iraq-clinic/mobile && npm run cap:sync -w @iraq-clinic/mobile",
+    "mobile:android": "npm run cap:open:android -w @iraq-clinic/mobile"
+  },
+  "dependencies": {
+    "@neon/config": "^1.13.0",
+    "@neon/env": "^2.1.0"
   }
 }

@@ -4,7 +4,7 @@ import { useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Stethoscope, ClipboardList, ShieldCheck, Plus, Key, Trash2,
-  CheckCircle, XCircle, AlertCircle, UserCheck, UserX, Activity
+  CheckCircle, XCircle, AlertCircle, UserCheck, UserX, Activity, Banknote
 } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
@@ -22,7 +22,7 @@ import {
   createSecretaryAccount, updateDoctorAndAccount,
   activateDoctorSubscription, getDoctorFullDetails,
 } from "@/app/actions/admin";
-import { setDoctorSubscription } from "@/app/actions/subscription";
+import { setDoctorSubscription, updateSubscriptionPricing, type SubscriptionPricing } from "@/app/actions/subscription";
 import { sendMessage } from "@/app/actions/messages";
 
 interface Specialty { id: string; name: string; nameAr: string; }
@@ -45,9 +45,10 @@ const dayOptions = [
   { value: "mon-fri", label_ar: "الاثنين - الجمعة", label_en: "Mon - Fri" },
 ];
 
-export default function AdminDashboardClient({ stats, doctors, specialties, subscriptions, locale }: {
+export default function AdminDashboardClient({ stats, doctors, specialties, subscriptions, pricing, locale }: {
   stats: Stats; doctors: Doctor[]; specialties: Specialty[];
   subscriptions: { doctorId: string; expiresAt: Date }[];
+  pricing: SubscriptionPricing;
   locale: string;
 }) {
   const router = useRouter();
@@ -68,6 +69,10 @@ export default function AdminDashboardClient({ stats, doctors, specialties, subs
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [toast, setToast] = useState("");
+  const [subMode, setSubMode] = useState<"duration" | "date">("duration");
+  const [monthlyPrice, setMonthlyPrice] = useState(String(pricing.monthlyPrice));
+  const [yearlyPrice, setYearlyPrice] = useState(String(pricing.yearlyPrice));
+  const [priceSaving, setPriceSaving] = useState(false);
   // Doctor detail panel
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailData, setDetailData] = useState<Awaited<ReturnType<typeof getDoctorFullDetails>> | null>(null);
@@ -197,20 +202,85 @@ export default function AdminDashboardClient({ stats, doctors, specialties, subs
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[
-          { n: stats.totalDoctors, label: ar ? "الأطباء" : "Doctors", icon: Stethoscope, color: "indigo" },
-          { n: stats.activeDoctors, label: ar ? "نشطون" : "Active", icon: Activity, color: "emerald" },
-          { n: stats.totalSpecialties, label: ar ? "التخصصات" : "Specialties", icon: ClipboardList, color: "violet" },
-          { n: stats.doctorsWithAccounts, label: ar ? "لديهم حسابات" : "With Accounts", icon: ShieldCheck, color: "blue" },
-        ].map(({ n, label, icon: Icon, color }) => (
-          <div key={label} className="card-premium p-4 hover:border-white/12 transition-colors">
-            <div className={`mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-${color}-500/10`}>
-              <Icon className={`h-4.5 w-4.5 text-${color}-400`} />
+        {([
+          { n: stats.totalDoctors,        label: ar ? "إجمالي الأطباء"  : "Total Doctors",    icon: Stethoscope,  gradient: "linear-gradient(135deg,#6366f1,#8b5cf6)", glow: "rgba(99,102,241,.3)"  },
+          { n: stats.activeDoctors,       label: ar ? "الأطباء النشطون" : "Active Doctors",   icon: Activity,     gradient: "linear-gradient(135deg,#10b981,#059669)", glow: "rgba(16,185,129,.3)"  },
+          { n: stats.totalSpecialties,    label: ar ? "التخصصات"        : "Specialties",      icon: ClipboardList, gradient: "linear-gradient(135deg,#f59e0b,#ef4444)", glow: "rgba(245,158,11,.3)"  },
+          { n: stats.doctorsWithAccounts, label: ar ? "لديهم حسابات"   : "With Accounts",    icon: ShieldCheck,  gradient: "linear-gradient(135deg,#06b6d4,#3b82f6)", glow: "rgba(6,182,212,.3)"   },
+        ] as const).map(({ n, label, icon: Icon, gradient, glow }) => (
+          <div key={label}
+            className="relative overflow-hidden rounded-2xl p-5 flex flex-col gap-3"
+            style={{ background: gradient, boxShadow: `0 8px 28px ${glow}` }}>
+            {/* decorative circles */}
+            <div className="pointer-events-none absolute -end-5 -top-5 h-24 w-24 rounded-full" style={{ background: "rgba(255,255,255,.08)" }} />
+            <div className="pointer-events-none absolute -end-10 -bottom-8 h-32 w-32 rounded-full" style={{ background: "rgba(255,255,255,.05)" }} />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: "rgba(255,255,255,.18)" }}>
+              <Icon className="h-5 w-5 text-white" />
             </div>
-            <p className="text-2xl font-black text-white">{n}</p>
-            <p className="text-xs text-slate-500 mt-0.5">{label}</p>
+            <div>
+              <p className="text-3xl font-black text-white leading-none">{n}</p>
+              <p className="text-xs font-medium mt-1.5" style={{ color: "rgba(255,255,255,.78)" }}>{label}</p>
+            </div>
           </div>
         ))}
+      </div>
+
+      {/* Subscription prices — shown on the doctor subscribe page */}
+      <div className="card-premium p-5">
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <div>
+            <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+              <Banknote className="h-4 w-4 text-emerald-400" />
+              {ar ? "أسعار الاشتراك" : "Subscription prices"}
+            </h2>
+            <p className="text-xs text-slate-500 mt-1">
+              {ar
+                ? "هذه الأسعار تظهر للطبيب في صفحة الاشتراك. الدفع يتم بالتواصل معك ثم التفعيل من هنا."
+                : "These prices appear on the doctor's subscribe page. Payment is confirmed by you, then you activate the account here."}
+            </p>
+          </div>
+        </div>
+        <form
+          className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setPriceSaving(true);
+            const result = await updateSubscriptionPricing(Number(monthlyPrice), Number(yearlyPrice));
+            setPriceSaving(false);
+            if (result.success) {
+              showToast(ar ? "تم حفظ أسعار الاشتراك" : "Subscription prices saved");
+              router.refresh();
+            } else {
+              showToast(ar ? "تعذّر حفظ الأسعار" : "Could not save prices");
+            }
+          }}
+        >
+          <label className="block">
+            <span className="text-xs text-slate-400">{ar ? "سعر الشهر (د.ع)" : "Monthly price (IQD)"}</span>
+            <input
+              type="number"
+              min={0}
+              required
+              value={monthlyPrice}
+              onChange={(e) => setMonthlyPrice(e.target.value)}
+              className="mt-1 w-full rounded-xl border border-white/10 bg-[#0c1121] px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500/40"
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs text-slate-400">{ar ? "سعر السنة (د.ع)" : "Yearly price (IQD)"}</span>
+            <input
+              type="number"
+              min={0}
+              required
+              value={yearlyPrice}
+              onChange={(e) => setYearlyPrice(e.target.value)}
+              className="mt-1 w-full rounded-xl border border-white/10 bg-[#0c1121] px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500/40"
+            />
+          </label>
+          <Button type="submit" loading={priceSaving} className="h-11">
+            {ar ? "حفظ الأسعار" : "Save prices"}
+          </Button>
+        </form>
       </div>
 
       {/* Doctors table */}
@@ -244,9 +314,7 @@ export default function AdminDashboardClient({ stats, doctors, specialties, subs
                       onClick={() => openDetail(doc)}
                       title={ar ? "عرض تفاصيل الطبيب" : "View doctor details"}
                     >
-                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600/20 border border-indigo-500/20 text-indigo-300 font-bold text-sm">
-                        {doc.name[0]}
-                      </div>
+                      <div className="patient-avatar patient-avatar-sm">{doc.name[0]}</div>
                       <div>
                         <p className="font-medium text-indigo-300 hover:text-indigo-200 text-sm underline-offset-2 hover:underline">{ar ? doc.nameAr : doc.name}</p>
                         <p className="text-xs text-slate-600">{ar ? doc.name : doc.nameAr}</p>
@@ -557,20 +625,67 @@ export default function AdminDashboardClient({ stats, doctors, specialties, subs
       </Modal>
 
       {/* Subscription modal */}
-      <Modal isOpen={subOpen} onClose={() => setSubOpen(false)}
+      <Modal isOpen={subOpen} onClose={() => { setSubOpen(false); setSubMode("duration"); }}
         title={`${ar ? "تحديد اشتراك" : "Set Subscription"} — ${ar ? selected?.nameAr : selected?.name}`}
         size="sm"
         footer={<>
-          <Button variant="secondary" onClick={() => setSubOpen(false)} disabled={loading}>{ar ? "إلغاء" : "Cancel"}</Button>
+          <Button variant="secondary" onClick={() => { setSubOpen(false); setSubMode("duration"); }} disabled={loading}>{ar ? "إلغاء" : "Cancel"}</Button>
           <Button type="submit" form="sub-form" loading={loading}>{ar ? "حفظ" : "Save"}</Button>
         </>}>
+
+        {/* Current subscription info */}
+        {selected && subMap.get(selected.id) && (
+          <div className={`mb-4 rounded-xl border px-3 py-2 text-xs flex items-center gap-2 ${
+            isSubscribed(selected.id)
+              ? "border-emerald-500/20 bg-emerald-500/8 text-emerald-400"
+              : "border-red-500/20 bg-red-500/8 text-red-400"
+          }`}>
+            {isSubscribed(selected.id) ? (
+              <CheckCircle className="h-3.5 w-3.5 shrink-0" />
+            ) : (
+              <XCircle className="h-3.5 w-3.5 shrink-0" />
+            )}
+            <span>
+              {ar ? "الاشتراك الحالي ينتهي: " : "Current expiry: "}
+              <strong>{new Date(subMap.get(selected.id)!).toLocaleDateString(ar ? "ar-IQ" : "en-GB")}</strong>
+              {!isSubscribed(selected.id) && (ar ? " (منتهي)" : " (expired)")}
+            </span>
+          </div>
+        )}
+
+        {/* Mode toggle */}
+        <div className="mb-4 flex rounded-xl overflow-hidden border border-white/8 bg-white/3">
+          <button type="button"
+            onClick={() => setSubMode("duration")}
+            className={`flex-1 py-2 text-xs font-medium transition-colors ${
+              subMode === "duration" ? "bg-indigo-600/30 text-indigo-300" : "text-slate-500 hover:text-slate-300"
+            }`}>
+            {ar ? "مدة ثابتة" : "Fixed Duration"}
+          </button>
+          <button type="button"
+            onClick={() => setSubMode("date")}
+            className={`flex-1 py-2 text-xs font-medium transition-colors ${
+              subMode === "date" ? "bg-indigo-600/30 text-indigo-300" : "text-slate-500 hover:text-slate-300"
+            }`}>
+            {ar ? "تاريخ محدد" : "Custom Date"}
+          </button>
+        </div>
+
         <form id="sub-form" onSubmit={async (e) => {
           e.preventDefault();
           if (!selected) return;
           setLoading(true);
           const fd = new FormData(e.currentTarget);
-          const days = parseInt(fd.get("days") as string);
-          const expiry = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+          let expiry: Date;
+          if (subMode === "duration") {
+            const days = parseInt(fd.get("days") as string);
+            expiry = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+          } else {
+            const dateVal = fd.get("customDate") as string;
+            if (!dateVal) { setLoading(false); return; }
+            // Set to end of day
+            expiry = new Date(dateVal + "T23:59:59");
+          }
           await setDoctorSubscription(selected.id, expiry);
           // Send notification to doctor
           if (selected.user?.id) {
@@ -580,16 +695,37 @@ export default function AdminDashboardClient({ stats, doctors, specialties, subs
           }
           setLoading(false);
           setSubOpen(false);
+          setSubMode("duration");
           showToast(ar ? "تم تحديث الاشتراك" : "Subscription updated");
           router.refresh();
-        }} className="space-y-4">
-          <Select name="days" label={ar ? "مدة الاشتراك" : "Subscription Duration"}
-            options={[
-              { value: "30", label: ar ? "شهر (30 يوم)" : "1 Month (30 days)" },
-              { value: "90", label: ar ? "3 أشهر (90 يوم)" : "3 Months" },
-              { value: "180", label: ar ? "6 أشهر (180 يوم)" : "6 Months" },
-              { value: "365", label: ar ? "سنة (365 يوم)" : "1 Year" },
-            ]} defaultValue="30" required />
+        }} className="space-y-3">
+          {subMode === "duration" ? (
+            <Select name="days" label={ar ? "مدة الاشتراك" : "Subscription Duration"}
+              options={[
+                { value: "30",  label: ar ? "شهر واحد (30 يوم)"   : "1 Month (30 days)" },
+                { value: "90",  label: ar ? "3 أشهر (90 يوم)"      : "3 Months (90 days)" },
+                { value: "180", label: ar ? "6 أشهر (180 يوم)"     : "6 Months (180 days)" },
+                { value: "365", label: ar ? "سنة كاملة (365 يوم)"  : "1 Year (365 days)" },
+              ]} defaultValue="30" required />
+          ) : (
+            <div className="space-y-2">
+              <label className="block text-xs font-medium text-slate-400">
+                {ar ? "تاريخ انتهاء الاشتراك" : "Subscription Expiry Date"}
+              </label>
+              <input
+                name="customDate"
+                type="date"
+                required
+                className="w-full rounded-xl border border-white/10 bg-[#0c1121] px-3 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/30 [color-scheme:dark]"
+              />
+              <p className="text-[11px] text-amber-400/70 flex items-start gap-1">
+                <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
+                {ar
+                  ? "يمكنك تحديد تاريخ في الماضي لاختبار انتهاء الاشتراك"
+                  : "You can set a past date to test subscription expiry"}
+              </p>
+            </div>
+          )}
         </form>
       </Modal>
 

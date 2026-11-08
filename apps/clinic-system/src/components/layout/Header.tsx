@@ -7,10 +7,11 @@ import { Menu, Globe, LogOut, ChevronDown, ShieldCheck, Stethoscope, ClipboardLi
 import { useState } from "react";
 import { logoutAction } from "@/app/actions/auth";
 import { cn } from "@/lib/utils";
+import ThemeToggle from "@/components/ui/ThemeToggle";
 
-interface HeaderProps { locale: string; userName?: string; onMenuToggle: () => void; role?: string; userId?: string; messages?: any[]; unreadCount?: number; doctors?: any[]; adminUserId?: string; }
+interface HeaderProps { locale: string; userName?: string; onMenuToggle: () => void; role?: string; userId?: string; doctorLogoUrl?: string | null; messages?: any[]; unreadCount?: number; doctors?: any[]; adminUserId?: string; }
 
-export default function Header({ locale, userName, onMenuToggle, role="admin", userId, messages, unreadCount, doctors, adminUserId }: HeaderProps) {
+export default function Header({ locale, userName, onMenuToggle, role="admin", userId, doctorLogoUrl, messages, unreadCount, doctors, adminUserId }: HeaderProps) {
   const router = useRouter();
   const [showMenu, setShowMenu] = useState(false);
   const ar = locale === "ar";
@@ -24,13 +25,23 @@ export default function Header({ locale, userName, onMenuToggle, role="admin", u
   const avatarGradient = role==="doctor" ? "from-violet-600 to-indigo-600" : role==="secretary" ? "from-cyan-600 to-blue-700" : "from-indigo-600 to-blue-700";
 
   return (
-    <header className="sticky top-0 z-10 flex h-13 items-center gap-3 border-b border-white/5 bg-[#060912]/90 backdrop-blur-xl px-4">
-      <button className="flex h-8 w-8 items-center justify-center rounded-lg text-white/30 hover:text-white/70 hover:bg-white/6 lg:hidden transition-colors" onClick={onMenuToggle}>
+    <header
+      className="sticky top-0 z-10 flex h-13 items-center gap-3 backdrop-blur-xl px-4"
+      style={{ borderBottom: "1px solid var(--border)", background: "color-mix(in srgb, var(--bg-root) 90%, transparent)" }}
+    >
+      <button
+        className="mobile-only lg:hidden flex h-8 w-8 items-center justify-center rounded-lg bg-app-hover transition-colors"
+        style={{ color: "var(--text-3)" }}
+        onClick={onMenuToggle}
+      >
         <Menu className="h-4 w-4" />
       </button>
 
       {/* Role pill */}
-      <div className={cn("hidden lg:flex items-center gap-1.5 rounded-full border border-white/8 bg-white/4 px-3 py-1 text-xs font-semibold", roleColor)}>
+      <div
+        className={cn("hidden lg:flex desktop-only items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold", roleColor)}
+        style={{ border: "1px solid var(--border)", background: "var(--bg-hover)" }}
+      >
         <RoleIcon className="h-3 w-3" />{roleLabel}
       </div>
 
@@ -39,7 +50,8 @@ export default function Header({ locale, userName, onMenuToggle, role="admin", u
       {/* Actions */}
       <div className="flex items-center gap-1">
         <Link href={switchHref}
-          className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs text-white/35 hover:text-white/70 hover:bg-white/6 transition-colors">
+          className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs bg-app-hover transition-colors"
+          style={{ color: "var(--text-3)" }}>
           <Globe className="h-3.5 w-3.5" />
           <span className="hidden sm:inline">{other==="ar" ? "عربي" : "EN"}</span>
         </Link>
@@ -51,7 +63,7 @@ export default function Header({ locale, userName, onMenuToggle, role="admin", u
             locale={locale} doctors={doctors} adminUserId={adminUserId}
           />
         ) : (
-          <button className="relative flex h-8 w-8 items-center justify-center rounded-xl text-white/30 hover:text-white/70 hover:bg-white/6 transition-colors">
+          <button className="relative flex h-8 w-8 items-center justify-center rounded-xl bg-app-hover transition-colors" style={{ color: "var(--text-3)" }}>
             <Bell className="h-4 w-4" />
           </button>
         )}
@@ -59,19 +71,30 @@ export default function Header({ locale, userName, onMenuToggle, role="admin", u
         {/* User menu */}
         <div className="relative ms-1">
           <button onClick={() => setShowMenu(!showMenu)}
-            className="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-white/6 transition-colors">
-            <div className={cn("flex h-7 w-7 items-center justify-center rounded-lg text-white text-xs font-bold bg-gradient-to-br", avatarGradient)}>
-              {userName?.[0]?.toUpperCase() ?? "U"}
+            className="flex items-center gap-2 rounded-xl px-2 py-1.5 bg-app-hover transition-colors">
+            <div className={cn("flex h-7 w-7 items-center justify-center rounded-lg text-white text-xs font-bold bg-gradient-to-br overflow-hidden", avatarGradient)}>
+              {(role === "doctor" || role === "secretary") && doctorLogoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={doctorLogoUrl} alt="" className="h-full w-full object-cover" />
+              ) : (
+                userName?.[0]?.toUpperCase() ?? "U"
+              )}
             </div>
-            <span className="hidden sm:block text-xs font-medium text-white/70">{userName}</span>
-            <ChevronDown className="h-3.5 w-3.5 text-white/25" />
+            <span className="hidden sm:block text-xs font-medium" style={{ color: "var(--text-2)" }}>{userName}</span>
+            <ChevronDown className="h-3.5 w-3.5" style={{ color: "var(--text-3)" }} />
           </button>
 
           {showMenu && (
-            <div className={cn("absolute top-full mt-2 w-48 rounded-2xl border border-white/8 bg-[#0f1629] shadow-2xl shadow-black/50 overflow-hidden py-1 z-50", ar ? "left-0" : "right-0")}>
-              <div className="px-4 py-3 border-b border-white/6">
-                <p className="text-xs font-semibold text-white">{userName}</p>
+            <div
+              className={cn("absolute top-full mt-2 w-48 rounded-2xl overflow-hidden py-1 z-50 shadow-2xl shadow-black/50", ar ? "left-0" : "right-0")}
+              style={{ border: "1px solid var(--border)", background: "var(--bg-surface)" }}
+            >
+              <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
+                <p className="text-xs font-semibold" style={{ color: "var(--text-1)" }}>{userName}</p>
                 <p className={cn("text-xs mt-0.5", roleColor)}>{roleLabel}</p>
+              </div>
+              <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
+                <ThemeToggle locale={locale} />
               </div>
               <button onClick={handleLogout}
                 className="flex w-full items-center gap-2.5 px-4 py-2.5 text-xs text-rose-400 hover:bg-rose-500/10 transition-colors">

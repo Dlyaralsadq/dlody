@@ -29,7 +29,7 @@ export async function getListedDoctors(filters?: {
     if (gov) addressFilter = { clinicAddress: { contains: gov.ar } };
   }
 
-  return prisma.doctor.findMany({
+  const doctors = await prisma.doctor.findMany({
     where: {
       isActive: true,
       ...(filters?.specialtyId ? { specialtyId: filters.specialtyId } : {}),
@@ -46,6 +46,25 @@ export async function getListedDoctors(filters?: {
     },
     include: { specialty: true },
     orderBy: { nameAr: "asc" },
+  });
+  const priority = await getPriorityDoctorIds(doctors.map((doctor) => doctor.id));
+  return sortByPriority(doctors, priority);
+}
+
+export async function getPriorityDoctorIds(ids: string[]): Promise<Set<string>> {
+  if (ids.length === 0) return new Set();
+  const subs = await prisma.doctorSubscription.findMany({
+    where: { doctorId: { in: ids }, expiresAt: { gt: new Date() } },
+    select: { doctorId: true },
+  });
+  return new Set(subs.map((sub) => sub.doctorId));
+}
+
+export function sortByPriority<T extends { id: string; nameAr: string }>(rows: T[], priority: Set<string>): T[] {
+  return [...rows].sort((a, b) => {
+    const rank = Number(priority.has(b.id)) - Number(priority.has(a.id));
+    if (rank !== 0) return rank;
+    return a.nameAr.localeCompare(b.nameAr, "ar");
   });
 }
 

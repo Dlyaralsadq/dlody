@@ -19,7 +19,7 @@ export default async function SuspendedPage({ params }: { params: Promise<{ loca
   });
 
   return (
-    <div className="min-h-screen bg-[#060912] flex items-center justify-center p-4 overflow-hidden" dir={ar ? "rtl" : "ltr"}>
+    <div className="min-h-screen flex items-center justify-center p-4 overflow-hidden" style={{ background: "var(--bg-root)" }} dir={ar ? "rtl" : "ltr"}>
 
       {/* Ambient bg */}
       <div className="fixed inset-0 pointer-events-none">
@@ -118,7 +118,7 @@ export default async function SuspendedPage({ params }: { params: Promise<{ loca
           </form>
         </div>
 
-        <p className="text-xs text-white/15 font-mono">ClinicPro · {ar ? "إدارة العيادات الطبية" : "Clinic Management"}</p>
+        <p className="text-xs text-white/15 font-mono">{ar ? "طبيبي" : "Tabibee"} · {ar ? "إدارة العيادات الطبية" : "Clinic Management"}</p>
       </div>
     </div>
   );

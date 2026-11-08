@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { generateId } from "@/lib/utils";
+import { isAppointmentSlotAvailable } from "@/app/actions/appointmentAvailability";
 
 // ─── Queue / Arrival ───────────────────────────────────────────
 export async function getTodayQueue(doctorId: string) {
@@ -101,6 +102,7 @@ export async function quickBookAppointment(doctorId: string, data: {
   patientName: string;
   patientPhone: string;
   patientGender: string;
+  patientNationalId: string;          // required
   patientNameAr?: string;
   date: string;
   time: string;
@@ -108,7 +110,14 @@ export async function quickBookAppointment(doctorId: string, data: {
   reason?: string;
   notes?: string;
   existingPatientId?: string;
-}) {
+}): Promise<{ success: boolean; error?: string }> {
+  // Validate national ID
+  const nationalId = data.patientNationalId?.trim();
+  if (!nationalId) return { success: false, error: "national_id_required" };
+
+  const available = await isAppointmentSlotAvailable(doctorId, data.date, data.time);
+  if (!available) return { success: false, error: "slot_taken" };
+
   let patientId = data.existingPatientId;
 
   if (!patientId) {
@@ -120,11 +129,18 @@ export async function quickBookAppointment(doctorId: string, data: {
         nameAr: data.patientNameAr,
         phone: data.patientPhone,
         gender: data.patientGender,
+        nationalId,
         patientNumber,
         doctorId,
       },
     });
     patientId = patient.id;
+  } else {
+    // Update nationalId on existing patient if not already set
+    await prisma.patient.update({
+      where: { id: patientId },
+      data: { nationalId: nationalId },
+    });
   }
 
   const appointmentNumber = generateId("APT");
@@ -133,23 +149,170 @@ export async function quickBookAppointment(doctorId: string, data: {
   const [hour, minute] = data.time.split(":").map(Number);
   const dateTime = new Date(year, month - 1, day, hour, minute, 0);
 
+  const doctor = await prisma.doctor.findUnique({ where: { id: doctorId }, select: { appointmentDuration: true } });
+
+  const notesParts: string[] = [];
+  if (data.notes) notesParts.push(data.notes);
+  notesParts.push(`رقم الهوية: ${nationalId}`);
+
   await prisma.appointment.create({
     data: {
       appointmentNumber,
       patientId,
       doctorId,
       date: dateTime,
-      duration: 30,
+      duration: doctor?.appointmentDuration && doctor.appointmentDuration > 0 ? doctor.appointmentDuration : 30,
       type: data.type ?? "consultation",
       status: "scheduled",
       reason: data.reason,
-      notes: data.notes,
+      notes: notesParts.join(" · "),
+      patientNationalId: nationalId,
     },
   });
 
   revalidatePath("/[locale]/secretary", "page");
   revalidatePath("/[locale]/doctor", "page");
   return { success: true };
+}
+
+// ─── Patient national-ID lookup for auto-fill in booking form ──────────────
+export async function lookupPatientByNationalId(doctorId: string, nationalId: string): Promise<{
+  id: string;
+  name: string;
+  nameAr: string | null;
+  phone: string;
+  gender: string;
+  nationalId: string | null;
+  bloodType: string | null;
+  visitCount: number;
+  lastVisit: {
+    date: Date;
+    diagnosis: string | null;
+    prescription: string | null;
+    notes: string | null;
+    type: string;
+    appointmentNumber: string;
+  } | null;
+} | null> {
+  const trimmed = nationalId.trim();
+  if (!trimmed || trimmed.length < 3) return null;
+
+  const patient = await prisma.patient.findFirst({
+    where: { doctorId, nationalId: trimmed },
+    include: {
+      appointments: {
+        where: { status: "completed", deletedAt: null },
+        orderBy: { date: "desc" },
+        take: 1,
+        select: {
+          date: true,
+          diagnosis: true,
+          prescription: true,
+          notes: true,
+          type: true,
+          appointmentNumber: true,
+        },
+      },
+      _count: { select: { appointments: { where: { status: "completed" } } } },
+    },
+  });
+
+  if (!patient) return null;
+
+  const last = patient.appointments[0] ?? null;
+  return {
+    id: patient.id,
+    name: patient.name,
+    nameAr: patient.nameAr,
+    phone: patient.phone,
+    gender: patient.gender,
+    nationalId: patient.nationalId,
+    bloodType: patient.bloodType,
+    visitCount: patient._count.appointments,
+    lastVisit: last ? {
+      date: last.date,
+      diagnosis: last.diagnosis,
+      prescription: last.prescription,
+      notes: last.notes,
+      type: last.type,
+      appointmentNumber: last.appointmentNumber,
+    } : null,
+  };
+}
+
+// ─── Patient phone lookup for auto-fill in booking form ────────────────────
+export async function lookupPatientByPhone(doctorId: string, phone: string): Promise<{
+  id: string;
+  name: string;
+  nameAr: string | null;
+  phone: string;
+  gender: string;
+  nationalId: string | null;
+  bloodType: string | null;
+  visitCount: number;
+  lastVisit: {
+    date: Date;
+    diagnosis: string | null;
+    prescription: string | null;
+    notes: string | null;
+    type: string;
+    appointmentNumber: string;
+  } | null;
+} | null> {
+  const normalized = phone.replace(/\D/g, "");
+  if (!normalized || normalized.length < 7) return null;
+
+  const patient = await prisma.patient.findFirst({
+    where: {
+      doctorId,
+      OR: [
+        { phone: { contains: normalized } },
+        { phone: normalized },
+      ],
+    },
+    include: {
+      appointments: {
+        where: { status: "completed", deletedAt: null },
+        orderBy: { date: "desc" },
+        take: 1,
+        select: {
+          date: true,
+          diagnosis: true,
+          prescription: true,
+          notes: true,
+          type: true,
+          appointmentNumber: true,
+        },
+      },
+      _count: {
+        select: {
+          appointments: { where: { status: "completed" } },
+        },
+      },
+    },
+  });
+
+  if (!patient) return null;
+
+  const last = patient.appointments[0] ?? null;
+  return {
+    id: patient.id,
+    name: patient.name,
+    nameAr: patient.nameAr,
+    phone: patient.phone,
+    gender: patient.gender,
+    nationalId: patient.nationalId,
+    bloodType: patient.bloodType,
+    visitCount: patient._count.appointments,
+    lastVisit: last ? {
+      date: last.date,
+      diagnosis: last.diagnosis,
+      prescription: last.prescription,
+      notes: last.notes,
+      type: last.type,
+      appointmentNumber: last.appointmentNumber,
+    } : null,
+  };
 }
 
 export async function getSecretaryDoctorId(userId: string): Promise<string | null> {
@@ -184,7 +347,16 @@ export async function getWaitingRoomData(doctorId: string) {
 export async function markPayment(appointmentId: string, doctorId: string, isPaid: boolean) {
   const apt = await prisma.appointment.findFirst({ where: { id: appointmentId, doctorId } });
   if (!apt) return { success: false };
-  await prisma.appointment.update({ where: { id: appointmentId }, data: { isPaid } });
+  const doctor = isPaid
+    ? await prisma.doctor.findUnique({ where: { id: doctorId }, select: { consultationFee: true } })
+    : null;
+  await prisma.appointment.update({
+    where: { id: appointmentId },
+    data: {
+      isPaid,
+      feeAmount: isPaid ? (apt.feeAmount ?? doctor?.consultationFee ?? null) : apt.feeAmount,
+    },
+  });
   revalidatePath("/[locale]/secretary", "page");
   return { success: true };
 }
@@ -376,12 +548,17 @@ export async function secretaryEditAppointment(
   doctorId: string,
   secretaryId: string,
   data: { date?: string; time?: string; type?: string; notes?: string; reason?: string }
-) {
+): Promise<{ success: boolean; error?: string }> {
   const apt = await prisma.appointment.findFirst({ where: { id: appointmentId, doctorId } });
   if (!apt) return { success: false };
 
   let newDate = apt.date;
   if (data.date && data.time) {
+    const available = await isAppointmentSlotAvailable(doctorId, data.date, data.time, {
+      excludeAppointmentId: appointmentId,
+    });
+    if (!available) return { success: false, error: "slot_taken" };
+
     const [y, m, d] = data.date.split("-").map(Number);
     const [h, min] = data.time.split(":").map(Number);
     newDate = new Date(y, m - 1, d, h, min, 0);
@@ -404,4 +581,29 @@ export async function secretaryEditAppointment(
   revalidatePath("/[locale]/secretary", "page");
   revalidatePath("/[locale]/doctor", "page");
   return { success: true };
+}
+
+// ─── Patient medical history (for doctor portal patient file) ───
+export async function getPatientHistoryForDoctor(doctorId: string, patientId: string) {
+  const patient = await prisma.patient.findFirst({
+    where: { id: patientId, doctorId },
+    select: {
+      id: true, name: true, nameAr: true, phone: true, gender: true,
+      nationalId: true, bloodType: true, medicalHistory: true, allergies: true,
+      dateOfBirth: true, patientNumber: true,
+    },
+  });
+  if (!patient) return null;
+
+  const appointments = await prisma.appointment.findMany({
+    where: { doctorId, patientId, status: "completed", deletedAt: null },
+    orderBy: { completedAt: "desc" },
+    select: {
+      id: true, appointmentNumber: true, date: true, completedAt: true,
+      type: true, reason: true, diagnosis: true, prescription: true, notes: true,
+      queueNumber: true,
+    },
+  });
+
+  return { patient, appointments };
 }

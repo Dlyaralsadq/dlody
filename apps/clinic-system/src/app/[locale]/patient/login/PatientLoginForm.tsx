@@ -1,14 +1,12 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
-import { Phone, Lock, Eye, EyeOff, ArrowRight, User2 } from "lucide-react";
+import { AtSign, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
 import { patientLoginAction } from "@/app/actions/patientAuth";
 
 export default function PatientLoginForm({ locale }: { locale: string }) {
   const ar = locale === "ar";
-  const router = useRouter();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
@@ -17,14 +15,22 @@ export default function PatientLoginForm({ locale }: { locale: string }) {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const fd = new FormData(e.currentTarget);
-    fd.set("locale", locale);
-    const result = await patientLoginAction(fd);
-    if (result.success) {
-      router.push(`/${locale}/patient`);
-      router.refresh();
-    } else {
-      setError(ar ? "رقم الهاتف أو كلمة المرور غير صحيحة" : "Invalid phone or password");
+
+    try {
+      const fd = new FormData(e.currentTarget);
+      fd.set("locale", locale);
+      const result = await patientLoginAction(fd);
+
+      if (result && !result.success) {
+        setError(
+          ar
+            ? "البريد أو رقم الهاتف أو كلمة المرور غير صحيحة"
+            : "Invalid email, phone, or password"
+        );
+        setLoading(false);
+      }
+    } catch {
+      setError(ar ? "فشل الاتصال — أعد المحاولة" : "Connection failed — try again");
       setLoading(false);
     }
   }
@@ -38,22 +44,28 @@ export default function PatientLoginForm({ locale }: { locale: string }) {
       )}
 
       <div className="space-y-1.5">
-        <label className="form-label">{ar ? "رقم الهاتف" : "Phone number"}</label>
+        <label className="form-label">{ar ? "البريد أو رقم الهاتف" : "Email or phone"}</label>
         <div className="relative">
-          <Phone className="absolute inset-y-0 start-3.5 my-auto h-4 w-4 text-white/25" />
+          <AtSign className="absolute inset-y-0 start-3.5 my-auto h-4 w-4 text-white/25" />
           <input
-            name="phone"
-            type="tel"
+            name="identifier"
+            type="text"
             required
             dir="ltr"
+            autoComplete="username"
             className="form-input ps-10 pe-4"
-            placeholder="07XXXXXXXXX"
+            placeholder={ar ? "email@example.com أو 07XXXXXXXXX" : "email@example.com or 07XXXXXXXXX"}
           />
         </div>
       </div>
 
       <div className="space-y-1.5">
-        <label className="form-label">{ar ? "كلمة المرور" : "Password"}</label>
+        <div className="flex items-center justify-between">
+          <label className="form-label !mb-0">{ar ? "كلمة المرور" : "Password"}</label>
+          <Link href={`/${locale}/forgot-password`} className="text-xs text-cyan-400 hover:underline font-semibold">
+            {ar ? "نسيت كلمة المرور؟" : "Forgot password?"}
+          </Link>
+        </div>
         <div className="relative">
           <Lock className="absolute inset-y-0 start-3.5 my-auto h-4 w-4 text-white/25" />
           <input

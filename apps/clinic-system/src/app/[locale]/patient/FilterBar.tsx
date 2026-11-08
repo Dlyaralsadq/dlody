@@ -58,8 +58,23 @@ export default function FilterBar({
 
   const hasFilter = !!(specialty || gov || district || q);
 
+  // Highlight an empty select to guide the user
+  const emptySelectCls = "h-9 appearance-none rounded-xl ps-3 pe-7 text-xs focus:outline-none max-w-[155px]";
+  const filledSelectCls = "border border-indigo-500/40 bg-indigo-500/8 text-indigo-200 focus:border-indigo-500/70";
+  const emptyGuideCls   = "border border-amber-400/40 bg-amber-400/8 text-amber-200/80 focus:border-amber-400/60 animate-pulse-gentle";
+  const normalCls       = "border border-white/10 bg-white/5 text-white focus:border-indigo-500/60";
+
   return (
-    <div className="shrink-0 bg-[#060912]/90 border-b border-white/5 backdrop-blur-md z-10">
+    <div className="shrink-0 backdrop-blur-md z-10" style={{ borderBottom: "1px solid var(--border)", background: "color-mix(in srgb, var(--bg-root) 92%, transparent)" }}>
+      {/* Hint bar — only shown when no filter selected */}
+      {!hasFilter && (
+        <div className="flex items-center gap-1.5 px-3 py-1.5"
+          style={{ borderBottom: "1px solid rgba(245,158,11,.15)", background: "rgba(245,158,11,.04)" }}>
+          <span className="text-[10px] text-amber-300/80">
+            {ar ? "▲ اختر المحافظة والتخصص لعرض الأطباء على الخريطة" : "▲ Select a governorate & specialty to see doctors on the map"}
+          </span>
+        </div>
+      )}
       <div className="flex items-center gap-2 px-3 py-2.5 overflow-x-auto">
 
         {/* Specialty */}
@@ -67,16 +82,16 @@ export default function FilterBar({
           <select
             value={specialty}
             onChange={(e) => applySpecialty(e.target.value)}
-            className="h-9 appearance-none rounded-xl border border-white/10 bg-white/5 ps-3 pe-7 text-xs text-white focus:outline-none focus:border-indigo-500/60 max-w-[155px]"
+            className={`${emptySelectCls} ${specialty ? filledSelectCls : (!hasFilter ? emptyGuideCls : normalCls)}`}
           >
-            <option value="">{ar ? "كل التخصصات" : "All specialties"}</option>
+            <option value="">{ar ? "التخصص" : "Specialty"}</option>
             {specialties.map((s) => (
               <option key={s.id} value={s.id}>
                 {getSpecialtyIcon(s.id)} {ar ? s.nameAr : s.name}
               </option>
             ))}
           </select>
-          <ChevronDown size={12} className="pointer-events-none absolute end-2 top-1/2 -translate-y-1/2 text-white/30" />
+          <ChevronDown size={12} className={`pointer-events-none absolute end-2 top-1/2 -translate-y-1/2 ${specialty ? "text-indigo-400" : "text-white/30"}`} />
         </div>
 
         {/* Governorate */}
@@ -84,14 +99,14 @@ export default function FilterBar({
           <select
             value={gov}
             onChange={(e) => applyGov(e.target.value)}
-            className="h-9 appearance-none rounded-xl border border-white/10 bg-white/5 ps-3 pe-7 text-xs text-white focus:outline-none focus:border-indigo-500/60 max-w-[130px]"
+            className={`h-9 appearance-none rounded-xl ps-3 pe-7 text-xs focus:outline-none max-w-[130px] ${gov ? filledSelectCls : (!hasFilter ? emptyGuideCls : normalCls)}`}
           >
-            <option value="">{ar ? "كل المحافظات" : "All governorates"}</option>
+            <option value="">{ar ? "المحافظة" : "Governorate"}</option>
             {IRAQ_GOVERNORATES.map((g) => (
               <option key={g.id} value={g.id}>{ar ? g.ar : g.en}</option>
             ))}
           </select>
-          <ChevronDown size={12} className="pointer-events-none absolute end-2 top-1/2 -translate-y-1/2 text-white/30" />
+          <ChevronDown size={12} className={`pointer-events-none absolute end-2 top-1/2 -translate-y-1/2 ${gov ? "text-indigo-400" : "text-white/30"}`} />
         </div>
 
         {/* District — only show when governorate selected */}
