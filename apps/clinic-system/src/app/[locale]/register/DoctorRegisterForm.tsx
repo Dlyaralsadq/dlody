@@ -78,6 +78,8 @@ export default function DoctorRegisterForm({
         phone_taken:      { ar: "رقم الهاتف مسجّل مسبقاً", en: "Phone already registered" },
         email_taken:      { ar: "البريد مسجّل مسبقاً", en: "Email already registered" },
         invalid_email:    { ar: "بريد غير صالح", en: "Invalid email" },
+        unreal_email:     { ar: "هذا البريد غير حقيقي أو لا يستقبل الرسائل. استخدم بريدك الفعلي", en: "This email is not a real inbox. Use an address that can receive mail" },
+        email_check_failed: { ar: "تعذر التحقق من نطاق البريد. حاول مرة أخرى", en: "Could not check this email domain. Try again" },
         invalid_phone:    { ar: "رقم هاتف غير صالح", en: "Invalid phone" },
         invalid_specialty:{ ar: "التخصص غير صحيح", en: "Invalid specialty" },
       };
@@ -97,8 +99,8 @@ export default function DoctorRegisterForm({
         </h2>
         <p className="text-sm text-white/50 mb-6 max-w-xs">
           {ar
-            ? "يمكنك الآن تسجيل الدخول وإضافة موقع عيادتك لتظهر في خريطة المرضى. لفتح نظام إدارة العيادة الكامل تواصل مع مدير المنصة للاشتراك."
-            : "You can now login and add your clinic location to appear on the patient map. To unlock the full clinic management system, contact the platform admin."}
+            ? "يمكنك الآن تسجيل الدخول باسم المستخدم. إذا أضفت بريداً، أكّده بعد الدخول حتى يُقبل في تسجيل الدخول. لفتح نظام العيادة تواصل مع مدير المنصة للاشتراك."
+            : "You can now sign in with your username. If you added an email, confirm it after signing in before it can be used to log in. Contact the platform admin to unlock the clinic system."}
         </p>
         <button
           onClick={() => router.push(`/${locale}/login`)}
@@ -186,12 +188,12 @@ export default function DoctorRegisterForm({
         <div className="relative">
           <input
             name="email" type="email" dir="ltr"
-            placeholder="doctor@example.com"
+            placeholder="name@gmail.com"
             className="w-full rounded-xl border border-white/10 bg-[#0c1121] ps-4 pe-9 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-indigo-500/50"
           />
           <User size={13} className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-white/25" />
         </div>
-        <p className="mt-1 text-[11px] text-white/30">{ar ? "يُؤكد عبر رسالة SMS إلى هاتفك — ويُستخدم لتسجيل الدخول" : "Verified via SMS to your phone — also used to sign in"}</p>
+        <p className="mt-1 text-[11px] text-white/30">{ar ? "اختياري. إن أضفته يجب أن يكون بريداً حقيقياً، ويصله رمز التأكيد قبل أن يُستخدم للدخول" : "Optional. If you add one, it must be a real inbox and is confirmed before it can be used to sign in"}</p>
       </div>
 
       {/* Location */}

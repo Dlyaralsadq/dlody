@@ -193,7 +193,13 @@ export default function DoctorSettingsClient({
         setTimeout(() => setSaved(false), 3000);
         router.refresh();
       } else {
-        setError(ar ? "حدث خطأ أثناء الحفظ" : "An error occurred while saving");
+        const emailErrors: Record<string, string> = {
+          unreal_email: ar ? "هذا البريد غير حقيقي أو لا يستقبل الرسائل" : "This email is not a real inbox",
+          invalid_email: ar ? "بريد غير صالح" : "Invalid email",
+          email_check_failed: ar ? "تعذر التحقق من نطاق البريد. حاول مرة أخرى" : "Could not check this email domain. Try again",
+          email_taken: ar ? "البريد مستخدم مسبقاً" : "Email already in use",
+        };
+        setError(emailErrors[result.error ?? ""] ?? (ar ? "حدث خطأ أثناء الحفظ" : "An error occurred while saving"));
       }
     } catch {
       setError(ar ? "تعذّر الاتصال بالخادم" : "Could not reach the server");

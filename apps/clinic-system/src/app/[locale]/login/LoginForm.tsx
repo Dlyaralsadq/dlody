@@ -59,6 +59,7 @@ export default function LoginForm({ locale }: { locale: string }) {
           suspended: ar ? "الحساب موقوف — تواصل مع الإدارة" : "Account suspended — contact admin",
 
           account_incomplete: ar ? "الحساب غير مكتمل — تواصل مع الإدارة" : "Account incomplete — contact admin",
+          email_unverified: ar ? "أكّد البريد أولاً من الحساب، أو ادخل باسم المستخدم أو رقم الهاتف" : "Confirm this email from your account first, or sign in with your username or phone",
 
         };
 

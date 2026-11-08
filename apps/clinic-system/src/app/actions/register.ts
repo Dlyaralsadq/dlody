@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth";
+import { normalizeAccountEmail } from "@/lib/realEmail";
 
 function generatePatientNumber(): string {
   return `DR-${Date.now().toString().slice(-6)}`;
@@ -22,6 +23,10 @@ export async function registerDoctor(data: {
   workingHoursStart?: string;
   workingHoursEnd?: string;
 }): Promise<{ success: boolean; error?: string }> {
+  const checkedEmail = await normalizeAccountEmail(data.email);
+  if (checkedEmail.status === "error") return { success: false, error: checkedEmail.error };
+  const email = checkedEmail.status === "ok" ? checkedEmail.email : null;
+
   // Check username availability
   const existing = await prisma.user.findUnique({
     where: { username: data.username },
@@ -36,9 +41,7 @@ export async function registerDoctor(data: {
   });
   if (phoneTaken) return { success: false, error: "phone_taken" };
 
-  const email = data.email?.trim().toLowerCase() || null;
   if (email) {
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { success: false, error: "invalid_email" };
     const emailTaken = await prisma.user.findUnique({ where: { email } });
     if (emailTaken) return { success: false, error: "email_taken" };
     const doctorEmailTaken = await prisma.doctor.findUnique({ where: { email } });

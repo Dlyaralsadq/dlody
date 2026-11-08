@@ -128,6 +128,9 @@ export default function AdminDashboardClient({ stats, doctors, specialties, subs
     setLoading(false);
     if (r.success) { router.refresh(); return true; }
     if (r.error === "username_taken") setErrors({ username: ar ? "اسم المستخدم مستخدم بالفعل" : "Username taken" });
+    if (r.error === "email_taken") setErrors({ email: ar ? "البريد مستخدم مسبقاً" : "Email already in use" });
+    if (r.error === "invalid_email" || r.error === "unreal_email") setErrors({ email: ar ? "أدخل بريداً حقيقياً يستقبل الرسائل" : "Enter a real email that can receive mail" });
+    if (r.error === "email_check_failed") setErrors({ email: ar ? "تعذر التحقق من نطاق البريد" : "Could not check this email domain" });
     return false;
   };
 
@@ -537,7 +540,7 @@ export default function AdminDashboardClient({ stats, doctors, specialties, subs
             <Input name="phone" type="tel" label={ar ? "الهاتف" : "Phone"} defaultValue={editDoctor?.phone ?? ""} />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Input name="email" type="email" label={ar ? "البريد" : "Email"} defaultValue={editDoctor?.email ?? ""} />
+            <Input name="email" type="email" label={ar ? "البريد" : "Email"} defaultValue={editDoctor?.email ?? ""} error={errors.email} />
             <Input name="licenseNumber" label={ar ? "رقم الترخيص" : "License #"} defaultValue={editDoctor?.licenseNumber ?? ""} />
           </div>
           <div className="grid grid-cols-3 gap-3">

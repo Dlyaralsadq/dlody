@@ -175,6 +175,9 @@ export async function login(
   if (!user) return { success: false, error: "invalid_credentials" };
   const valid = await verifyPassword(password, user.password);
   if (!valid) return { success: false, error: "invalid_credentials" };
+  if (isEmailLike(identifier) && user.email && identifier.trim().toLowerCase() === user.email.toLowerCase() && !user.emailVerified) {
+    return { success: false, error: "email_unverified" };
+  }
 
   const sessionToken = await createSession(user.id, user.username, user.name, user.role, user.isActive, maxAgeSeconds);
   return { success: true, session: sessionToken, role: user.role };

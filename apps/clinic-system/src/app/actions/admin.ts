@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { hashPassword } from "@/lib/auth";
 import { generateId } from "@/lib/utils";
+import { normalizeAccountEmail } from "@/lib/realEmail";
 
 export async function getAdminStats() {
   const [totalDoctors, activeDoctors, totalSpecialties, totalPatients, doctorsWithAccounts] =
@@ -46,11 +47,18 @@ export async function createDoctorWithAccount(data: {
   username: string;
   password: string;
 }) {
-  const { username, password, ...doctorData } = data;
+  const { username, password, email: rawEmail, ...doctorData } = data;
+  const checkedEmail = await normalizeAccountEmail(rawEmail);
+  if (checkedEmail.status === "error") return { success: false, error: checkedEmail.error };
+  const email = checkedEmail.status === "ok" ? checkedEmail.email : null;
 
   const existingUser = await prisma.user.findUnique({ where: { username } });
   if (existingUser) {
     return { success: false, error: "username_taken" };
+  }
+  if (email) {
+    const emailTaken = await prisma.user.findUnique({ where: { email } });
+    if (emailTaken) return { success: false, error: "email_taken" };
   }
 
   const hashedPwd = await hashPassword(password);
@@ -61,12 +69,16 @@ export async function createDoctorWithAccount(data: {
       password: hashedPwd,
       name: data.nameAr || data.name,
       role: "doctor",
+      email,
+      emailVerified: false,
+      phone: data.phone?.replace(/\D/g, "") || null,
     },
   });
 
   await prisma.doctor.create({
     data: {
       ...doctorData,
+      email,
       userId: user.id,
     },
   });
@@ -97,7 +109,32 @@ export async function updateDoctorAndAccount(
     clinicAddress?: string;
   }
 ) {
-  await prisma.doctor.update({ where: { id: doctorId }, data });
+  const next = { ...data };
+  let emailUpdate: string | null | undefined;
+  if (next.email !== undefined) {
+    const checkedEmail = await normalizeAccountEmail(next.email);
+    if (checkedEmail.status === "error") return { success: false, error: checkedEmail.error };
+    emailUpdate = checkedEmail.status === "ok" ? checkedEmail.email : null;
+    delete next.email;
+    const doctor = await prisma.doctor.findUnique({ where: { id: doctorId }, select: { userId: true, email: true } });
+    if (doctor?.userId && (doctor.email ?? "") !== (emailUpdate ?? "")) {
+      if (emailUpdate) {
+        const taken = await prisma.user.findFirst({
+          where: { email: emailUpdate, NOT: { id: doctor.userId } },
+        });
+        if (taken) return { success: false, error: "email_taken" };
+      }
+      await prisma.user.update({
+        where: { id: doctor.userId },
+        data: { email: emailUpdate, emailVerified: false },
+      });
+    }
+  }
+
+  await prisma.doctor.update({
+    where: { id: doctorId },
+    data: { ...next, ...(emailUpdate !== undefined ? { email: emailUpdate } : {}) },
+  });
   revalidatePath("/[locale]/admin", "layout");
   return { success: true };
 }

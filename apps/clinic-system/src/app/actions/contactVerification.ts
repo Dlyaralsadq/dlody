@@ -9,6 +9,7 @@ import {
   isEmailConfigured,
   isWhatsappConfigured,
 } from "@/lib/notify";
+import { checkRealEmail } from "@/lib/realEmail";
 
 const CODE_TTL_MINUTES = 10;
 const MAX_ATTEMPTS = 5;
@@ -16,10 +17,6 @@ const MAX_REQUESTS_PER_HOUR = 8;
 
 function normalizeDigits(v: string): string {
   return v.replace(/\D/g, "");
-}
-
-function isEmail(v: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 }
 
 function hashCode(code: string): string {
@@ -111,30 +108,35 @@ export async function requestContactVerification(
 
   if (purpose === "email") {
     const emailRaw = (newValue ?? user.email ?? user.doctor?.email ?? "").trim().toLowerCase();
-    if (!emailRaw || !isEmail(emailRaw)) {
-      return { success: false, error: "email_required" };
+    const checked = await checkRealEmail(emailRaw);
+    if (checked.status !== "ok") {
+      return {
+        success: false,
+        error: checked.status === "error" && checked.error !== "invalid_email" ? checked.error : "email_required",
+      };
     }
 
+    const email = checked.email;
     const taken = await prisma.user.findFirst({
-      where: { email: emailRaw, NOT: { id: user.id } },
+      where: { email, NOT: { id: user.id } },
     });
     if (taken) return { success: false, error: "email_taken" };
 
     await prisma.user.update({
       where: { id: user.id },
-      data: { email: emailRaw, emailVerified: false },
+      data: { email, emailVerified: false },
     });
     if (user.doctor) {
       await prisma.doctor.update({
         where: { id: user.doctor.id },
-        data: { email: emailRaw },
+        data: { email },
       });
     }
 
     const code = crypto.randomInt(100000, 1000000).toString();
     const { delivered, channel } = await sendVerificationCode({
       purpose: "email",
-      email: emailRaw,
+      email,
       code,
       name: user.name,
       ar,
@@ -145,13 +147,13 @@ export async function requestContactVerification(
         userId: user.id,
         purpose: "email",
         codeHash: hashCode(code),
-        destination: emailRaw,
+        destination: email,
         channel: channel ?? "email",
         expiresAt: new Date(Date.now() + CODE_TTL_MINUTES * 60 * 1000),
       },
     });
 
-    const hint = maskEmail(emailRaw);
+    const hint = maskEmail(email);
     if (!delivered) {
       if (process.env.NODE_ENV === "production" || isEmailConfigured()) {
         return { success: false, error: "delivery_failed" };

@@ -80,10 +80,15 @@ export default function DoctorModal({ isOpen, onClose, onSuccess, doctor, specia
     if (!data.specialtyId) { setErrors({ specialtyId: tc("required") }); setLoading(false); return; }
 
     try {
-      if (isEdit && doctor) {
-        await updateDoctor(doctor.id, data);
-      } else {
-        await createDoctor(data as Parameters<typeof createDoctor>[0]);
+      const result = isEdit && doctor
+        ? await updateDoctor(doctor.id, data)
+        : await createDoctor(data as Parameters<typeof createDoctor>[0]);
+      if (result && result.success === false) {
+        const arabic = locale === "ar";
+        const emailError = arabic ? "أدخل بريداً حقيقياً يستقبل الرسائل" : "Enter a real email that can receive mail";
+        setErrors({ email: emailError });
+        setLoading(false);
+        return;
       }
       onSuccess();
     } catch {
@@ -171,6 +176,7 @@ export default function DoctorModal({ isOpen, onClose, onSuccess, doctor, specia
             type="email"
             label={tc("email")}
             defaultValue={doctor?.email ?? ""}
+            error={errors.email}
           />
         </div>
 

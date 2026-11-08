@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { hashPassword, login, setSessionCookie, getSession } from "@/lib/auth";
 import { calcAge } from "@/lib/requirePatient";
 import { saveAvatarFile } from "@/lib/postMediaUpload";
+import { normalizeAccountEmail } from "@/lib/realEmail";
 
 function normalizePhone(phone: string): string {
   return phone.replace(/\D/g, "");
@@ -97,12 +98,12 @@ export async function registerPatientAction(formData: FormData) {
   const bloodType = (formData.get("bloodType") as string) || null;
   const locale = (formData.get("locale") as string) ?? "ar";
 
+  const checkedEmail = await normalizeAccountEmail(emailRaw);
+  if (checkedEmail.status === "error") return { success: false, error: checkedEmail.error };
+  const email = checkedEmail.status === "ok" ? checkedEmail.email : null;
+
   if (!name || phone.length < 10 || !password || password.length < 6) {
     return { success: false, error: "invalid_data" };
-  }
-
-  if (emailRaw && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailRaw)) {
-    return { success: false, error: "invalid_email" };
   }
 
   const existing = await prisma.user.findFirst({
@@ -112,8 +113,8 @@ export async function registerPatientAction(formData: FormData) {
     return { success: false, error: "phone_taken" };
   }
 
-  if (emailRaw) {
-    const emailTaken = await prisma.user.findUnique({ where: { email: emailRaw } });
+  if (email) {
+    const emailTaken = await prisma.user.findUnique({ where: { email } });
     if (emailTaken) return { success: false, error: "email_taken" };
   }
 
@@ -123,7 +124,7 @@ export async function registerPatientAction(formData: FormData) {
       username: phone,
       phone,
       phoneVerified: false,
-      email: emailRaw || null,
+      email,
       emailVerified: false,
       password: hashed,
       name,

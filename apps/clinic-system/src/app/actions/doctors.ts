@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { normalizeAccountEmail } from "@/lib/realEmail";
 import { revalidatePath } from "next/cache";
 import { generateId } from "@/lib/utils";
 
@@ -58,7 +59,9 @@ export async function createDoctor(data: {
   bio?: string;
   bioAr?: string;
 }) {
-  await prisma.doctor.create({ data });
+  const checkedEmail = await normalizeAccountEmail(data.email);
+  if (checkedEmail.status === "error") return { success: false, error: checkedEmail.error };
+  await prisma.doctor.create({ data: { ...data, email: checkedEmail.status === "ok" ? checkedEmail.email : undefined } });
   revalidatePath("/[locale]/doctors", "page");
   revalidatePath("/[locale]/dashboard", "page");
   return { success: true };
@@ -82,7 +85,13 @@ export async function updateDoctor(id: string, data: Partial<{
   bioAr: string;
   isActive: boolean;
 }>) {
-  await prisma.doctor.update({ where: { id }, data });
+  const next = { ...data };
+  if (next.email !== undefined) {
+    const checkedEmail = await normalizeAccountEmail(next.email);
+    if (checkedEmail.status === "error") return { success: false, error: checkedEmail.error };
+    next.email = checkedEmail.status === "ok" ? checkedEmail.email : undefined;
+  }
+  await prisma.doctor.update({ where: { id }, data: next });
   revalidatePath("/[locale]/doctors", "page");
   return { success: true };
 }

@@ -110,6 +110,8 @@ function VerifyBlock({
     unauthorized: ar ? "يجب تسجيل الدخول أولاً" : "Please sign in first",
     rate_limited: ar ? "طلبات كثيرة — حاول لاحقاً" : "Too many requests — try later",
     email_required: ar ? "أدخل بريداً صالحاً" : "Enter a valid email",
+    unreal_email: ar ? "هذا البريد غير حقيقي أو لا يستقبل الرسائل" : "This email is not a real inbox",
+    email_check_failed: ar ? "تعذر التحقق من نطاق البريد. حاول مرة أخرى" : "Could not check this email domain. Try again",
     phone_required: ar ? "أدخل رقماً صالحاً" : "Enter a valid phone number",
     delivery_failed: ar
       ? "تعذر إرسال الرمز. حاول لاحقاً"

@@ -28,6 +28,8 @@ export default function PatientRegisterForm({ locale }: { locale: string }) {
         phone_taken: ar ? "رقم الهاتف مسجّل مسبقاً" : "Phone already registered",
         email_taken: ar ? "البريد مسجّل مسبقاً" : "Email already registered",
         invalid_email: ar ? "بريد غير صالح" : "Invalid email",
+        unreal_email: ar ? "هذا البريد غير حقيقي أو لا يستقبل الرسائل. استخدم بريدك الفعلي" : "This email is not a real inbox. Use an address that can receive mail",
+        email_check_failed: ar ? "تعذر التحقق من نطاق البريد. حاول مرة أخرى" : "Could not check this email domain. Try again",
         invalid_data: ar ? "تحقق من البيانات المدخلة" : "Please check your input",
       };
       setError(msgs[result.error ?? ""] ?? (ar ? "حدث خطأ" : "Something went wrong"));
@@ -66,10 +68,10 @@ export default function PatientRegisterForm({ locale }: { locale: string }) {
         <label className="form-label">{ar ? "البريد الإلكتروني (اختياري)" : "Email (optional)"}</label>
         <div className="relative">
           <Mail className="absolute inset-y-0 start-3.5 my-auto h-4 w-4 text-white/25" />
-          <input name="email" type="email" dir="ltr" className="form-input ps-10 pe-4" placeholder="you@example.com" />
+          <input name="email" type="email" dir="ltr" className="form-input ps-10 pe-4" placeholder="name@gmail.com" />
         </div>
         <p className="text-[11px] text-white/30">
-          {ar ? "يُؤكد عبر رسالة SMS إلى هاتفك" : "Verified via SMS to your phone"}
+          {ar ? "إن أضفته يجب أن يكون بريداً حقيقياً. يصل رمز التأكيد إلى هذا الصندوق" : "If you add one, it must be a real inbox. The confirmation code is sent there"}
         </p>
       </div>
 

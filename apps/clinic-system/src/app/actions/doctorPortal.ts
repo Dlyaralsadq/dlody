@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { generateId } from "@/lib/utils";
 import { hashPassword, getSession } from "@/lib/auth";
+import { normalizeAccountEmail } from "@/lib/realEmail";
 import { parseCustomTreatmentTypes, type TreatmentTypeOption } from "@/lib/treatmentTypes";
 import { isAppointmentSlotAvailable } from "@/app/actions/appointmentAvailability";
 
@@ -249,6 +250,25 @@ export async function updateDoctorSettings(
 
   if (typeof allowed.logoUrl === "string" && allowed.logoUrl.length > 400_000) {
     delete allowed.logoUrl;
+  }
+
+  if (allowed.email !== undefined) {
+    const checkedEmail = await normalizeAccountEmail(typeof allowed.email === "string" ? allowed.email : "");
+    if (checkedEmail.status === "error") return { success: false, error: checkedEmail.error };
+    const email = checkedEmail.status === "ok" ? checkedEmail.email : null;
+    allowed.email = email;
+    if ((doctor.email ?? "") !== (email ?? "") && doctor.userId) {
+      if (email) {
+        const taken = await prisma.user.findFirst({
+          where: { email, NOT: { id: doctor.userId } },
+        });
+        if (taken) return { success: false, error: "email_taken" };
+      }
+      await prisma.user.update({
+        where: { id: doctor.userId },
+        data: { email, emailVerified: false },
+      });
+    }
   }
 
   await prisma.doctor.update({ where: { id: doctorId }, data: allowed });
