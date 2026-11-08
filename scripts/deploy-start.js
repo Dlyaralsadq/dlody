@@ -23,7 +23,7 @@ async function main() {
   console.log("🗄️  Setting up database...");
   if (isPg) {
     // PostgreSQL: push schema (creates tables, safe on redeploy)
-    run(`npx prisma db push --skip-generate --accept-data-loss --config prisma.config.ts`, dbPkgDir);
+    run(`npx prisma db push --skip-generate --config prisma.config.ts`, dbPkgDir);
   } else {
     // SQLite fallback (local / Cursor dev)
     run(`npx prisma migrate deploy --config prisma.config.ts`, dbPkgDir);

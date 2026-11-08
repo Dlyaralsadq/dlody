@@ -47,14 +47,26 @@ async function main() {
   const { prisma, close } = await createPrisma();
   console.log("🌱 Seeding database...");
 
+  const isPostgres = (process.env.DATABASE_URL ?? "").startsWith("postgres");
+  const seedDemo = !isPostgres || process.env.SEED_DEMO === "1";
   const hashedPassword = await bcrypt.hash("admin123", 12);
 
-  // Admin user
-  await prisma.user.upsert({
-    where: { username: "admin" },
-    update: {},
-    create: { username: "admin", password: hashedPassword, name: "مدير النظام", role: "admin" },
-  });
+  const existingAdmin = await prisma.user.findFirst({ where: { role: "admin" }, select: { id: true } });
+  if (!existingAdmin && isPostgres) {
+    const initial = process.env.ADMIN_INITIAL_PASSWORD ?? "";
+    if (initial.length < 8) {
+      console.log("No admin yet. Set ADMIN_INITIAL_PASSWORD (8+ characters) and run the seed again.");
+    } else {
+      await prisma.user.create({
+        data: { username: "admin", password: await bcrypt.hash(initial, 12), name: "مدير النظام", role: "admin" },
+      });
+      console.log("Admin account created.");
+    }
+  } else if (!existingAdmin) {
+    await prisma.user.create({
+      data: { username: "admin", password: hashedPassword, name: "مدير النظام", role: "admin" },
+    });
+  }
 
   // All medical specialties — comprehensive list
   const specs = [
@@ -103,6 +115,7 @@ async function main() {
     await prisma.specialty.upsert({ where: { id: spec.id }, update: {}, create: spec });
   }
 
+  if (seedDemo) {
   // Doctor user account for Dr. Ahmad
   const drAhmadUser = await prisma.user.upsert({
     where: { username: "dr.ahmad" },
@@ -198,8 +211,11 @@ async function main() {
 
   console.log("✅ Patients and Appointments created");
   console.log("\n🎉 Database seeded!");
-  console.log("   Admin login:  admin / admin123");
-  console.log("   Doctor login: dr.ahmad / admin123");
+  console.log("   Local admin login:  admin / admin123");
+  console.log("   Local doctor login: dr.ahmad / admin123");
+  } else {
+    console.log("Specialties ready. Demo doctors, patients, and appointments were not added.");
+  }
   await prisma.$disconnect();
   await close();
 }

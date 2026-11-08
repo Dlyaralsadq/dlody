@@ -11,7 +11,7 @@ cmds = [
 ]
 
 [start]
-cmd = "node scripts/deploy-start.js"
+cmd = "npm run start"
 
 [variables]
 NODE_ENV = "production"
