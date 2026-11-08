@@ -1,6 +1,17 @@
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { getPostsUploadDir, getStoriesUploadDir, getAvatarsUploadDir } from "@/lib/appPaths";
+import { saveStoredObject } from "@/lib/storedObjects";
+
+async function persistUpload(dir: string, filename: string, mimeType: string, buffer: Buffer, folder: "posts" | "stories" | "avatars") {
+  await saveStoredObject(`uploads/${folder}/${filename}`, mimeType, buffer);
+  try {
+    await mkdir(dir, { recursive: true });
+    await writeFile(path.join(dir, filename), buffer);
+  } catch {
+    // The database copy is the one that survives a deploy.
+  }
+}
 
 const MAX_IMAGE = 5 * 1024 * 1024;
 const MAX_VIDEO = 25 * 1024 * 1024;
@@ -45,10 +56,8 @@ export async function savePostMediaFile(
   const safeExt = ext.replace(/[^a-z0-9]/g, "") || (isImage ? "jpg" : "mp4");
   const filename = `${userId}-${Date.now()}.${safeExt}`;
 
-  const dir = getPostsUploadDir();
-  await mkdir(dir, { recursive: true });
   const buffer = Buffer.from(await file.arrayBuffer());
-  await writeFile(path.join(dir, filename), buffer);
+  await persistUpload(getPostsUploadDir(), filename, mime || (isImage ? "image/jpeg" : "video/mp4"), buffer, "posts");
 
   return {
     url: `/uploads/posts/${filename}`,
@@ -75,10 +84,8 @@ export async function saveStoryMediaFile(
   const safeExt = ext.replace(/[^a-z0-9]/g, "") || (isImage ? "jpg" : "mp4");
   const filename = `${userId}-${Date.now()}.${safeExt}`;
 
-  const dir = getStoriesUploadDir();
-  await mkdir(dir, { recursive: true });
   const buffer = Buffer.from(await file.arrayBuffer());
-  await writeFile(path.join(dir, filename), buffer);
+  await persistUpload(getStoriesUploadDir(), filename, mime || (isImage ? "image/jpeg" : "video/mp4"), buffer, "stories");
 
   return {
     url: `/uploads/stories/${filename}`,
@@ -101,10 +108,8 @@ export async function saveAvatarFile(
   const safeExt = ext.replace(/[^a-z0-9]/g, "") || "jpg";
   const filename = `${userId}-${Date.now()}.${safeExt}`;
 
-  const dir = getAvatarsUploadDir();
-  await mkdir(dir, { recursive: true });
   const buffer = Buffer.from(await file.arrayBuffer());
-  await writeFile(path.join(dir, filename), buffer);
+  await persistUpload(getAvatarsUploadDir(), filename, mime || "image/jpeg", buffer, "avatars");
 
   return { url: `/uploads/avatars/${filename}` };
 }

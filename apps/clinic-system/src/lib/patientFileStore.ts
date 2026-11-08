@@ -1,6 +1,7 @@
-import { mkdir, readFile, writeFile } from "fs/promises";
+import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import crypto from "crypto";
+import { readStoredObjectOrDisk, saveStoredObject } from "@/lib/storedObjects";
 
 const MAX_BYTES = 8 * 1024 * 1024;
 
@@ -30,10 +31,15 @@ export async function savePatientFile(file: File): Promise<
   if (!ext) return { error: "invalid_type" };
 
   const storageKey = `${crypto.randomBytes(16).toString("hex")}.${ext}`;
-  const dir = getPatientFilesDir();
-  await mkdir(dir, { recursive: true });
   const buffer = Buffer.from(await file.arrayBuffer());
-  await writeFile(path.join(dir, storageKey), buffer);
+  await saveStoredObject(`patient-files/${storageKey}`, mime, buffer);
+  try {
+    const dir = getPatientFilesDir();
+    await mkdir(dir, { recursive: true });
+    await writeFile(path.join(dir, storageKey), buffer);
+  } catch {
+    // The database copy is the one that survives a deploy.
+  }
 
   const fileName = path.basename(file.name).slice(0, 180) || `file.${ext}`;
   return { storageKey, mimeType: mime, sizeBytes: file.size, fileName };
@@ -41,9 +47,9 @@ export async function savePatientFile(file: File): Promise<
 
 export async function readPatientFile(storageKey: string): Promise<Buffer | null> {
   if (!/^[a-f0-9]{32}\.(jpg|png|webp|pdf)$/.test(storageKey)) return null;
-  try {
-    return await readFile(path.join(getPatientFilesDir(), storageKey));
-  } catch {
-    return null;
-  }
+  const file = await readStoredObjectOrDisk(
+    `patient-files/${storageKey}`,
+    path.join(getPatientFilesDir(), storageKey)
+  );
+  return file?.bytes ?? null;
 }

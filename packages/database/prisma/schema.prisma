@@ -346,6 +346,15 @@ model DoctorSubscription {
   updatedAt   DateTime @updatedAt
 }
 
+/// File bytes for patient documents, posts, stories, and avatars.
+/// Kept in the database so a new deploy does not erase a doctor's files.
+model StoredObject {
+  key       String   @id
+  mimeType  String
+  bytes     Bytes
+  createdAt DateTime @default(now())
+}
+
 /// Singleton row (id = "default") holding the prices shown on the subscribe page.
 model PlatformSettings {
   id           String   @id @default("default")

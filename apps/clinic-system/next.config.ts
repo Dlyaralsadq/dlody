@@ -54,6 +54,11 @@ const nextConfig: NextConfig = {
     },
   },
   output: process.env.NEXT_OUTPUT === "standalone" ? "standalone" : undefined,
+  async rewrites() {
+    return [
+      { source: "/uploads/:path*", destination: "/api/stored-media/:path*" },
+    ];
+  },
 };
 
 export default withNextIntl(nextConfig);
