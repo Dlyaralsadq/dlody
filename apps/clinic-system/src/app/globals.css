@@ -30,6 +30,9 @@ select option {
 .leaflet-tile {
   background: transparent;
 }
+.leaflet-zoom-animated {
+  will-change: transform;
+}
 .leaflet-popup-content-wrapper {
   background: var(--bg-surface);
   border: 1px solid var(--border);

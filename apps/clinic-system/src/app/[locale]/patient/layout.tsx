@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import PatientLayoutContent from "./components/PatientLayoutContent";
+import { getSession } from "@/lib/auth";
+import { recordPlatformVisit } from "@/lib/visits";
 export async function generateMetadata({
   params,
 }: {
@@ -15,6 +17,10 @@ export async function generateMetadata({
   };
 }
 
-export default function PatientLayout({ children }: { children: React.ReactNode }) {
+export default async function PatientLayout({ children }: { children: React.ReactNode }) {
+  const session = await getSession();
+  if (session?.role === "patient") {
+    await recordPlatformVisit(session.userId);
+  }
   return <PatientLayoutContent>{children}</PatientLayoutContent>;
 }

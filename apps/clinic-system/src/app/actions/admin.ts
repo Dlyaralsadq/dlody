@@ -8,21 +8,39 @@ import { normalizeAccountEmail } from "@/lib/realEmail";
 import { makePendingUsername } from "@/lib/usernamePolicy";
 import { deliverEmailCode } from "@/app/actions/contactVerification";
 
+async function countOrZero(query: Promise<number>) {
+  try {
+    return await query;
+  } catch {
+    return 0;
+  }
+}
+
 export async function getAdminStats() {
-  const [totalDoctors, activeDoctors, totalSpecialties, totalPatients, doctorsWithAccounts] =
+  const [totalDoctors, activeDoctors, totalSpecialties, totalPatients, doctorsWithAccounts, registeredPatients, platformVisits] =
     await Promise.all([
       prisma.doctor.count(),
       prisma.doctor.count({ where: { isActive: true } }),
       prisma.specialty.count(),
       prisma.patient.count(),
       prisma.doctor.count({ where: { userId: { not: null } } }),
+      prisma.user.count({ where: { role: "patient" } }),
+      countOrZero(prisma.platformVisit.count()),
     ]);
 
-  return { totalDoctors, activeDoctors, totalSpecialties, totalPatients, doctorsWithAccounts };
+  return {
+    totalDoctors,
+    activeDoctors,
+    totalSpecialties,
+    totalPatients,
+    doctorsWithAccounts,
+    registeredPatients,
+    platformVisits,
+  };
 }
 
 export async function getDoctorsWithAccounts() {
-  return prisma.doctor.findMany({
+  const doctors = await prisma.doctor.findMany({
     include: {
       specialty: true,
       user: { select: { id: true, username: true, isActive: true, createdAt: true } },
@@ -30,6 +48,24 @@ export async function getDoctorsWithAccounts() {
     },
     orderBy: { createdAt: "desc" },
   });
+
+  const views = await prisma.doctorPageView.groupBy({
+    by: ["doctorId", "kind"],
+    _count: { _all: true },
+  }).catch(() => [] as { doctorId: string; kind: string; _count: { _all: number } }[]);
+
+  const profileViews = new Map<string, number>();
+  const clinicViews = new Map<string, number>();
+  for (const row of views) {
+    if (row.kind === "clinic") clinicViews.set(row.doctorId, row._count._all);
+    else profileViews.set(row.doctorId, (profileViews.get(row.doctorId) ?? 0) + row._count._all);
+  }
+
+  return doctors.map((doctor) => ({
+    ...doctor,
+    profileViews: profileViews.get(doctor.id) ?? 0,
+    clinicViews: clinicViews.get(doctor.id) ?? 0,
+  }));
 }
 
 export async function createDoctorWithAccount(data: {
@@ -276,7 +312,7 @@ export async function activateDoctorSubscription(doctorId: string, months: numbe
 
 export async function getDoctorFullDetails(doctorId: string) {
   const now = new Date();
-  const [doctor, subscription, secretaries, appointmentsCount] = await Promise.all([
+  const [doctor, subscription, secretaries, appointmentsCount, profileViews, clinicViews] = await Promise.all([
     prisma.doctor.findUnique({
       where: { id: doctorId },
       include: {
@@ -291,6 +327,8 @@ export async function getDoctorFullDetails(doctorId: string) {
       select: { id: true, username: true, name: true, isActive: true },
     }),
     prisma.appointment.count({ where: { doctorId } }),
+    countOrZero(prisma.doctorPageView.count({ where: { doctorId, kind: "profile" } })),
+    countOrZero(prisma.doctorPageView.count({ where: { doctorId, kind: "clinic" } })),
   ]);
 
   return {
@@ -299,5 +337,7 @@ export async function getDoctorFullDetails(doctorId: string) {
     isSubscribed: subscription ? subscription.expiresAt > now : false,
     secretaries,
     totalAppointments: appointmentsCount,
+    profileViews,
+    clinicViews,
   };
 }

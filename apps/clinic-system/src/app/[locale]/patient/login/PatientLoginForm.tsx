@@ -22,15 +22,19 @@ export default function PatientLoginForm({ locale }: { locale: string }) {
       const result = await patientLoginAction(fd);
 
       if (result && !result.success) {
-        setError(
+        const message =
           result.error === "email_only"
             ? ar
               ? "تسجيل الدخول بالبريد الإلكتروني فقط"
               : "Sign in with your email address"
-            : ar
-              ? "البريد أو كلمة المرور غير صحيحة"
-              : "Invalid email or password"
-        );
+            : result.error === "rate_limited"
+              ? ar
+                ? "محاولات كثيرة. انتظر ربع ساعة ثم أعد المحاولة"
+                : "Too many attempts. Wait 15 minutes and try again"
+              : ar
+                ? "البريد أو كلمة المرور غير صحيحة"
+                : "Invalid email or password";
+        setError(message);
         setLoading(false);
       }
     } catch {

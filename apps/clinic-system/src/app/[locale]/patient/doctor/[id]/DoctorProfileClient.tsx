@@ -22,6 +22,7 @@ import { DoctorRatingBadge } from "@/components/ui/DoctorRatingDisplay";
 import StoryViewer from "../../components/StoryViewer";
 import type { FeedPost } from "@/app/actions/patientSocial";
 import type { DoctorRatingStats } from "@/app/actions/doctorRatings";
+import { recordDoctorPageView } from "@/lib/visits";
 
 type DoctorInfo = {
   id: string;
@@ -162,7 +163,10 @@ export default function DoctorProfileClient({
       {/* Tabs */}
       <div className="flex border-b border-white/5">
         <button
-          onClick={() => setTab("posts")}
+          onClick={() => {
+            setTab("posts");
+            void recordDoctorPageView(doctor.id, "profile");
+          }}
           className={`flex-1 flex items-center justify-center gap-2 py-3 text-xs font-semibold border-b-2 transition ${
             tab === "posts"
               ? "border-white text-white"
@@ -173,7 +177,10 @@ export default function DoctorProfileClient({
           {ar ? "المنشورات" : "Posts"}
         </button>
         <button
-          onClick={() => setTab("info")}
+          onClick={() => {
+            setTab("info");
+            void recordDoctorPageView(doctor.id, "clinic");
+          }}
           className={`flex-1 flex items-center justify-center gap-2 py-3 text-xs font-semibold border-b-2 transition ${
             tab === "info"
               ? "border-white text-white"

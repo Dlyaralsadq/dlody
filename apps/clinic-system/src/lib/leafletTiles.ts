@@ -38,9 +38,10 @@ const TILE_OPTS = {
   minZoom: 3,
   tileSize: 256,
   detectRetina: false,
-  updateWhenIdle: true,
+  updateWhenIdle: false,
   updateWhenZooming: false,
-  keepBuffer: 8,
+  updateInterval: 40,
+  keepBuffer: 4,
 };
 
 function tileLang(locale: string): "ar" | "en" {
@@ -109,15 +110,19 @@ export function applyHighQualityTiles(
 export const MAP_DEFAULTS = {
   maxZoom: 21,
   minZoom: 3,
-  zoomSnap: 1,
-  zoomDelta: 1,
-  wheelPxPerZoomLevel: 60,
-  fadeAnimation: true,
+  zoomSnap: 0.5,
+  zoomDelta: 0.5,
+  wheelPxPerZoomLevel: 40,
+  wheelDebounceTime: 20,
+  fadeAnimation: false,
   zoomAnimation: true,
   markerZoomAnimation: true,
+  inertia: true,
+  inertiaDeceleration: 2200,
+  easeLinearity: 0.25,
 } as const;
 
-export const MAP_REFRESH_MS = 20_000;
+export const MAP_REFRESH_MS = 4_000;
 
 export function getMapPreconnectHosts(_locale = "ar"): string[] {
   return [0, 1, 2, 3].map((n) => `https://mt${n}.google.com`);

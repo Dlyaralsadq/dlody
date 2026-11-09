@@ -10,6 +10,7 @@ import {
   isWhatsappConfigured,
 } from "@/lib/notify";
 import { checkRealEmail } from "@/lib/realEmail";
+import { allowRateLimit, clientIp, rateKey } from "@/lib/loginGuard";
 
 const CODE_TTL_MINUTES = 10;
 const MAX_ATTEMPTS = 5;
@@ -59,6 +60,8 @@ export async function deliverEmailCode(
     },
   });
   if (recentCount >= MAX_REQUESTS_PER_HOUR) return { success: false, error: "rate_limited" };
+  const ipAllowed = await allowRateLimit(rateKey("emailcode", await clientIp()), 15, 60 * 60 * 1000, true);
+  if (!ipAllowed) return { success: false, error: "rate_limited" };
 
   const code = crypto.randomInt(100000, 1000000).toString();
   const { delivered, channel } = await sendVerificationCode({

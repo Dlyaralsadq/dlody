@@ -65,6 +65,9 @@ export default function LoginForm({ locale }: { locale: string }) {
           suspended: ar ? "الحساب موقوف — تواصل مع الإدارة" : "Account suspended — contact admin",
 
           account_incomplete: ar ? "الحساب غير مكتمل — تواصل مع الإدارة" : "Account incomplete — contact admin",
+          rate_limited: ar
+            ? "محاولات كثيرة. انتظر ربع ساعة ثم أعد المحاولة"
+            : "Too many attempts. Wait 15 minutes and try again",
 
         };
 

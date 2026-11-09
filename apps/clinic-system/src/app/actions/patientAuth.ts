@@ -9,6 +9,7 @@ import { calcAge } from "@/lib/requirePatient";
 import { saveAvatarFile } from "@/lib/postMediaUpload";
 import { normalizeAccountEmail } from "@/lib/realEmail";
 import { deliverEmailCode } from "@/app/actions/contactVerification";
+import { allowRateLimit, clearRateLimit, clientIp, loginKeys } from "@/lib/loginGuard";
 
 function normalizePhone(phone: string): string {
   return phone.replace(/\D/g, "");
@@ -152,16 +153,31 @@ export async function registerPatientAction(formData: FormData) {
   return { success: false, error: "register_failed" };
 }
 
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+
 export async function patientLoginAction(formData: FormData) {
   const identifier =
     ((formData.get("identifier") as string) ?? (formData.get("phone") as string) ?? "").trim();
   const password = formData.get("password") as string;
   const locale = (formData.get("locale") as string) ?? "ar";
 
+  const keys = loginKeys(await clientIp(), identifier);
+  const open =
+    (await allowRateLimit(keys.ipKey, 20, LOGIN_WINDOW_MS, false)) &&
+    (await allowRateLimit(keys.accountKey, 8, LOGIN_WINDOW_MS, false));
+  if (!open) return { success: false as const, error: "rate_limited" };
+
   const result = await login(identifier, password, 60 * 60 * 24 * 30);
   if (!result.success || result.role !== "patient" || !result.session) {
-    return { success: false as const, error: result.error === "email_only" ? "email_only" : "invalid_credentials" };
+    await allowRateLimit(keys.ipKey, 20, LOGIN_WINDOW_MS, true);
+    await allowRateLimit(keys.accountKey, 8, LOGIN_WINDOW_MS, true);
+    return {
+      success: false as const,
+      error: result.error === "email_only" ? "email_only" : result.error === "rate_limited" ? "rate_limited" : "invalid_credentials",
+    };
   }
+
+  await clearRateLimit(keys.accountKey);
 
   const session = decodeSessionToken(result.session);
   if (!session) return { success: false as const, error: "invalid_credentials" };

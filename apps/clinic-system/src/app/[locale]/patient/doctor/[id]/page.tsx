@@ -16,6 +16,7 @@ import { getDoctorRatingStats } from "@/app/actions/doctorRatings";
 import { getActiveStoryDoctorIds } from "@/app/actions/doctorStories";
 import { PATIENT_NAV_SCROLL_PADDING, SCROLL_CONTAINER } from "@/lib/scrollUi";
 import ScrollSpacer from "@/components/ui/ScrollSpacer";
+import { recordDoctorPageView } from "@/lib/visits";
 
 export default async function PatientDoctorPage({
   params,
@@ -42,6 +43,7 @@ export default async function PatientDoctorPage({
     getDoctorRatingStats(doctor.id, session.userId),
     getActiveStoryDoctorIds([doctor.id]),
   ]);
+  await recordDoctorPageView(doctor.id, tab === "info" ? "clinic" : "profile");
 
   const govInfo = inferGovFromAddress(doctor.clinicAddress ?? "");
   const displayLat = doctor.clinicLat ?? govInfo?.lat ?? 33.2;

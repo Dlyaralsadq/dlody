@@ -4,7 +4,7 @@ import { useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Stethoscope, ClipboardList, ShieldCheck, Plus, Key, Trash2,
-  CheckCircle, XCircle, AlertCircle, UserCheck, UserX, Activity, Banknote
+  CheckCircle, XCircle, AlertCircle, UserCheck, UserX, Activity, Banknote, Users, Eye
 } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
@@ -35,8 +35,18 @@ interface Doctor {
   isActive: boolean; userId: string | null;
   user: { id: string; username: string; isActive: boolean } | null;
   _count: { appointments: number; patients: number };
+  profileViews?: number;
+  clinicViews?: number;
 }
-interface Stats { totalDoctors: number; activeDoctors: number; totalSpecialties: number; totalPatients: number; doctorsWithAccounts: number; }
+interface Stats {
+  totalDoctors: number;
+  activeDoctors: number;
+  totalSpecialties: number;
+  totalPatients: number;
+  doctorsWithAccounts: number;
+  registeredPatients: number;
+  platformVisits: number;
+}
 
 const dayOptions = [
   { value: "sat-thu", label_ar: "السبت - الخميس", label_en: "Sat - Thu" },
@@ -205,12 +215,14 @@ export default function AdminDashboardClient({ stats, doctors, specialties, subs
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {([
           { n: stats.totalDoctors,        label: ar ? "إجمالي الأطباء"  : "Total Doctors",    icon: Stethoscope,  gradient: "linear-gradient(135deg,#6366f1,#8b5cf6)", glow: "rgba(99,102,241,.3)"  },
           { n: stats.activeDoctors,       label: ar ? "الأطباء النشطون" : "Active Doctors",   icon: Activity,     gradient: "linear-gradient(135deg,#10b981,#059669)", glow: "rgba(16,185,129,.3)"  },
           { n: stats.totalSpecialties,    label: ar ? "التخصصات"        : "Specialties",      icon: ClipboardList, gradient: "linear-gradient(135deg,#f59e0b,#ef4444)", glow: "rgba(245,158,11,.3)"  },
           { n: stats.doctorsWithAccounts, label: ar ? "لديهم حسابات"   : "With Accounts",    icon: ShieldCheck,  gradient: "linear-gradient(135deg,#06b6d4,#3b82f6)", glow: "rgba(6,182,212,.3)"   },
+          { n: stats.registeredPatients,  label: ar ? "حسابات المرضى"   : "Patient accounts", icon: Users,        gradient: "linear-gradient(135deg,#8b5cf6,#d946ef)", glow: "rgba(139,92,246,.3)"  },
+          { n: stats.platformVisits,      label: ar ? "زيارات المنصة"   : "Platform visits",  icon: Eye,          gradient: "linear-gradient(135deg,#0ea5e9,#6366f1)", glow: "rgba(14,165,233,.3)"  },
         ] as const).map(({ n, label, icon: Icon, gradient, glow }) => (
           <div key={label}
             className="relative overflow-hidden rounded-2xl p-5 flex flex-col gap-3"
@@ -301,6 +313,7 @@ export default function AdminDashboardClient({ stats, doctors, specialties, subs
                 <th>{ar ? "التخصص" : "Specialty"}</th>
                 <th>{ar ? "الهاتف" : "Phone"}</th>
                 <th>{ar ? "المواعيد/المرضى" : "Appts/Patients"}</th>
+                <th>{ar ? "زيارات الملف / العيادة" : "Profile / clinic"}</th>
                 <th>{ar ? "الاشتراك" : "Subscription"}</th>
                 <th>{ar ? "حساب النظام" : "Account"}</th>
                 <th>{ar ? "الحالة" : "Status"}</th>
@@ -309,7 +322,7 @@ export default function AdminDashboardClient({ stats, doctors, specialties, subs
             </thead>
             <tbody>
               {doctors.length === 0 ? (
-                <tr><td colSpan={7} className="py-12 text-center text-slate-600">{ar ? "لا يوجد أطباء" : "No doctors"}</td></tr>
+                <tr><td colSpan={9} className="py-12 text-center text-slate-600">{ar ? "لا يوجد أطباء" : "No doctors"}</td></tr>
               ) : doctors.map(doc => (
                 <tr key={doc.id}>
                   <td>
@@ -335,6 +348,10 @@ export default function AdminDashboardClient({ stats, doctors, specialties, subs
                     <span className="font-semibold text-white">{doc._count.appointments}</span>
                     <span className="text-slate-600 mx-1">/</span>
                     <span>{doc._count.patients}</span>
+                  </td>
+                  <td className="text-xs text-slate-300 leading-5">
+                    <div>{ar ? "الملف" : "Profile"}: {doc.profileViews ?? 0}</div>
+                    <div>{ar ? "العيادة" : "Clinic"}: {doc.clinicViews ?? 0}</div>
                   </td>
                   <td>
                     {isSubscribed(doc.id) ? (
@@ -783,6 +800,8 @@ export default function AdminDashboardClient({ stats, doctors, specialties, subs
                 { label: ar ? "الكشفية" : "Fee",        value: detailData.doctor.consultationFee ? `${detailData.doctor.consultationFee.toLocaleString()} ${ar ? "د.ع" : "IQD"}` : null },
                 { label: ar ? "المواعيد" : "Appointments", value: String(detailData.totalAppointments) },
                 { label: ar ? "المرضى" : "Patients",   value: String(detailData.doctor._count.patients) },
+                { label: ar ? "زيارات الملف" : "Profile visits", value: String(detailData.profileViews) },
+                { label: ar ? "زيارات العيادة" : "Clinic visits", value: String(detailData.clinicViews) },
                 { label: ar ? "العنوان" : "Address",    value: detailData.doctor.clinicAddress },
               ].filter(i => i.value).map((item) => (
                 <div key={item.label} className="rounded-xl border border-white/8 bg-white/3 px-3 py-2">

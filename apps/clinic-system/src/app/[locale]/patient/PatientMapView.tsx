@@ -85,6 +85,7 @@ export default function PatientMapView({
   const [selected, setSelected] = useState<DoctorPin | null>(null);
   const [locating, setLocating] = useState(false);
   const selectedIdRef = useRef<string | null>(null);
+  const markerKeyRef = useRef("");
 
   useEffect(() => {
     selectedIdRef.current = selected?.id ?? null;
@@ -185,10 +186,16 @@ export default function PatientMapView({
     );
   }, [mapStyle, locale]);
 
-  // Re-render markers when doctors change
+  // Re-render markers only when a pin actually changed, so the refresh stays smooth.
   useEffect(() => {
     if (!mapRef.current) return;
+    const key = doctors
+      .map((d) => `${d.id}|${d.lat ?? ""}|${d.lng ?? ""}|${d.logoUrl ?? ""}|${d.specialtyIcon}|${d.hasActiveStory ? 1 : 0}`)
+      .join(";");
+    if (key === markerKeyRef.current) return;
+    markerKeyRef.current = key;
     import("leaflet").then((L: any) => {
+      if (!mapRef.current) return;
       renderMarkers(L, mapRef.current);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -273,6 +280,9 @@ export default function PatientMapView({
   }, [focusArea?.govId, focusArea?.districtId, focusArea?.searchQueries?.join("|"), focusArea?.matchNames?.join("|"), focusArea?.lat, focusArea?.lng, focusArea?.zoom]);
 
   function renderMarkers(L: any, map: any) {
+    markerKeyRef.current = doctors
+      .map((d) => `${d.id}|${d.lat ?? ""}|${d.lng ?? ""}|${d.logoUrl ?? ""}|${d.specialtyIcon}|${d.hasActiveStory ? 1 : 0}`)
+      .join(";");
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
 

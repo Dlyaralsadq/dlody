@@ -38,6 +38,8 @@ model User {
   doctorRatings   DoctorRating[] @relation("PatientRatings")
   passwordResets  PasswordResetToken[]
   contactVerifications ContactVerificationToken[]
+  platformVisits  PlatformVisit[]
+  doctorPageViews DoctorPageView[]
 
   @@index([phone])
 }
@@ -128,6 +130,7 @@ model Doctor {
   followers         DoctorFollow[]
   ratings           DoctorRating[]
   stories           DoctorStory[]
+  pageViews         DoctorPageView[]
 }
 
 model Post {
@@ -353,6 +356,37 @@ model StoredObject {
   mimeType  String
   bytes     Bytes
   createdAt DateTime @default(now())
+}
+
+/// Sliding window for login and code requests. The key is a hash, not the password or the raw inbox.
+model AuthRateLimit {
+  key         String   @id
+  count       Int      @default(0)
+  windowStart DateTime @default(now())
+}
+
+/// One row each time a patient opens the platform. Repeats inside 30 minutes are not stored.
+model PlatformVisit {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+/// kind is "profile" (doctor profile) or "clinic" (clinic info page).
+model DoctorPageView {
+  id        String   @id @default(cuid())
+  doctorId  String
+  doctor    Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  viewerId  String?
+  viewer    User?    @relation(fields: [viewerId], references: [id], onDelete: SetNull)
+  kind      String
+  createdAt DateTime @default(now())
+
+  @@index([doctorId, kind])
+  @@index([viewerId, doctorId, kind, createdAt])
 }
 
 /// Singleton row (id = "default") holding the prices shown on the subscribe page.

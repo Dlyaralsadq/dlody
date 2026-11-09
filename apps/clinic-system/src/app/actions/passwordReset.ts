@@ -4,6 +4,7 @@ import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth";
 import { sendResetCode, isDeliveryConfigured } from "@/lib/notify";
+import { allowRateLimit, clientIp, rateKey } from "@/lib/loginGuard";
 
 const CODE_TTL_MINUTES = 10;
 const MAX_ATTEMPTS = 5;
@@ -52,6 +53,8 @@ export async function requestPasswordReset(
 ): Promise<{ success: true; devCode?: string; devReason?: string }> {
   const ar = locale === "ar";
   try {
+    const ipAllowed = await allowRateLimit(rateKey("reset", await clientIp()), 10, 60 * 60 * 1000, true);
+    if (!ipAllowed) return { success: true };
     const match = await findUserByIdentifier(identifier);
     if (match) {
       const { user, method, destination } = match;
