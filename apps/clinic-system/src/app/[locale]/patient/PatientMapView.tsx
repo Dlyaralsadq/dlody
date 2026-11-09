@@ -6,7 +6,7 @@ import { Phone, Calendar, X, Navigation, MapPin, Clock, Banknote, Locate, Star, 
 import { WORKING_DAYS_LABELS } from "@/lib/doctorDisplay";
 import DoctorAvatar from "@/components/ui/DoctorAvatar";
 import { DoctorRatingBadge } from "@/components/ui/DoctorRatingDisplay";
-import { applyHighQualityTiles, MAP_DEFAULTS, MAP_REFRESH_MS, startMapTileRefresh, setMapDisplayStyle, type MapDisplayStyle } from "@/lib/leafletTiles";
+import { applyHighQualityTiles, MAP_DEFAULTS, MAP_REFRESH_MS, setMapDisplayStyle, type MapDisplayStyle } from "@/lib/leafletTiles";
 import { loadLeafletMap } from "@/lib/leafletLoader";
 import { fetchMapDoctorPins } from "@/app/actions/patientMap";
 import { PATIENT_NAV_BOTTOM_OFFSET, PATIENT_NAV_LEGEND_OFFSET } from "@/lib/patientUi";
@@ -121,7 +121,6 @@ export default function PatientMapView({
     if (!container) return;
 
     let cancelled = false;
-    let stopTileRefresh: (() => void) | undefined;
 
     (async () => {
       const L = await loadLeafletMap();
@@ -140,7 +139,6 @@ export default function PatientMapView({
       });
 
       tileLayersRef.current = applyHighQualityTiles(L, map, locale, mapStyle);
-      stopTileRefresh = startMapTileRefresh(map, tileLayersRef);
       leafletRef.current = L;
 
       L.control.zoom({ position: "bottomright" }).addTo(map);
@@ -158,7 +156,6 @@ export default function PatientMapView({
 
     return () => {
       cancelled = true;
-      stopTileRefresh?.();
       markersRef.current.forEach((m) => m.remove());
       markersRef.current = [];
       if (areaCircleRef.current) {

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { MapPin, Search } from "lucide-react";
-import { applyHighQualityTiles, MAP_DEFAULTS, startMapTileRefresh, setMapDisplayStyle, type MapDisplayStyle } from "@/lib/leafletTiles";
+import { applyHighQualityTiles, MAP_DEFAULTS, setMapDisplayStyle, type MapDisplayStyle } from "@/lib/leafletTiles";
 import { loadLeafletMap, preloadLeaflet, preloadMapTileHosts } from "@/lib/leafletLoader";
 import MapStyleSwitcher from "@/components/ui/MapStyleSwitcher";
 
@@ -81,7 +81,6 @@ export default function MapPicker({
     if (!container) return;
 
     let cancelled = false;
-    let stopTileRefresh: (() => void) | undefined;
 
     loadLeafletMap().then((L) => {
       if (cancelled || !mapRef.current || mapInstance.current) return;
@@ -101,7 +100,6 @@ export default function MapPicker({
       });
 
       tileLayersRef.current = applyHighQualityTiles(L, map, locale, mapStyle);
-      stopTileRefresh = startMapTileRefresh(map, tileLayersRef);
       leafletRef.current = L;
 
       const marker = L.marker([defaultLat, defaultLng], { draggable: true }).addTo(map);
@@ -150,7 +148,6 @@ export default function MapPicker({
 
     return () => {
       cancelled = true;
-      stopTileRefresh?.();
       if (mapInstance.current) {
         mapInstance.current.remove();
         mapInstance.current = null;

@@ -14,10 +14,21 @@ select option {
   color: #f0f4ff;
 }
 
-/* Leaflet map overrides */
+/* Leaflet map overrides. The fill matches Google's own map paper, so a tile
+   that is still loading never shows as a black square. */
 .leaflet-container {
-  background: #0c1121 !important;
+  background: #f2efe9 !important;
   font-family: "Cairo", "Inter", sans-serif;
+}
+.leaflet-container.map-style-satellite,
+.leaflet-container.map-style-hybrid {
+  background: #8d8680 !important;
+}
+.leaflet-container.map-style-terrain {
+  background: #e4dcc4 !important;
+}
+.leaflet-tile {
+  background: transparent;
 }
 .leaflet-popup-content-wrapper {
   background: var(--bg-surface);

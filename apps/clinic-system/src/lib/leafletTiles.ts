@@ -1,4 +1,4 @@
-/** Google Maps tiles for Leaflet, refreshed on a timer so the view stays current. */
+/** Google Maps tiles. The previous frame stays on screen while the next zoom loads. */
 
 import type { TileLayer as LeafletTileLayer } from "leaflet";
 
@@ -8,9 +8,6 @@ export type LeafletMap = import("leaflet").Map;
 /** auto = roadmap with POIs | satellite | hybrid | terrain */
 export type MapDisplayStyle = "auto" | "satellite" | "hybrid" | "terrain";
 
-/** Live list of tile layers. Refresh reads `.current` so a style change stays on Google. */
-export type TileLayerBag = { current: LeafletTileLayer[] };
-
 /** Google lyrs codes — roadmap (m) includes restaurants, mosques, hospitals, etc. */
 const GOOGLE_LYRS: Record<MapDisplayStyle, string> = {
   auto: "m",
@@ -19,71 +16,68 @@ const GOOGLE_LYRS: Record<MapDisplayStyle, string> = {
   terrain: "p",
 };
 
+const STYLE_CLASS: Record<MapDisplayStyle, string> = {
+  auto: "map-style-auto",
+  satellite: "map-style-satellite",
+  hybrid: "map-style-hybrid",
+  terrain: "map-style-terrain",
+};
+
+/** Same paper color as Google Maps, so a tile that is still arriving is not a black square. */
+const STYLE_FILL: Record<MapDisplayStyle, string> = {
+  auto: "#f2efe9",
+  satellite: "#8d8680",
+  hybrid: "#8d8680",
+  terrain: "#e4dcc4",
+};
+
 const TILE_OPTS = {
   subdomains: "0123",
   maxZoom: 21,
   maxNativeZoom: 21,
+  minZoom: 3,
+  tileSize: 256,
   detectRetina: false,
-  updateWhenIdle: false,
-  updateWhenZooming: true,
-  keepBuffer: 4,
-  crossOrigin: true as const,
+  updateWhenIdle: true,
+  updateWhenZooming: false,
+  keepBuffer: 8,
 };
 
-const layerMeta = new WeakMap<LeafletTileLayer, { locale: string; style: MapDisplayStyle }>();
+function tileLang(locale: string): "ar" | "en" {
+  return isArabicLocale(locale) ? "ar" : "en";
+}
 
-function getGoogleMapsKey(): string | undefined {
-  const key =
-    typeof process !== "undefined"
-      ? process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim()
-      : undefined;
-  return key || undefined;
+function googleTileUrl(lyrs: string, lang: "ar" | "en"): string {
+  return `https://mt{s}.google.com/vt/lyrs=${lyrs}&hl=${lang}&gl=IQ&x={x}&y={y}&z={z}`;
+}
+
+function markMapStyle(map: LeafletMap, style: MapDisplayStyle) {
+  const container = map.getContainer();
+  Object.values(STYLE_CLASS).forEach((name) => container.classList.remove(name));
+  container.classList.add(STYLE_CLASS[style]);
+  container.style.setProperty("background", STYLE_FILL[style], "important");
 }
 
 export function isArabicLocale(locale: string): boolean {
   return locale === "ar" || locale.startsWith("ar-");
 }
 
-function googleTileUrl(lyrs: string, lang: "ar" | "en", version: number): string {
-  const key = getGoogleMapsKey();
-  const params = [
-    `lyrs=${lyrs}`,
-    "x={x}",
-    "y={y}",
-    "z={z}",
-    `hl=${lang}`,
-    "gl=IQ",
-    key ? `key=${key}` : "",
-    `v=${version}`,
-  ]
-    .filter(Boolean)
-    .join("&");
-  return `https://mt{s}.google.com/vt?${params}`;
-}
-
-function tileLang(locale: string): "ar" | "en" {
-  return isArabicLocale(locale) ? "ar" : "en";
-}
-
-/** Create a Google Maps tile layer. `version` changes the URL so the browser fetches fresh tiles. */
+/** Create a Google Maps tile layer. The URL stays stable so the browser can keep tiles. */
 export function createGoogleTileLayer(
   L: LeafletModule,
   locale: string,
-  style: MapDisplayStyle = "auto",
-  version = Date.now()
+  style: MapDisplayStyle = "auto"
 ): LeafletTileLayer {
   const lang = tileLang(locale);
   const lyrs = GOOGLE_LYRS[style];
   const ar = lang === "ar";
 
-  const layer = L.tileLayer(googleTileUrl(lyrs, lang, version), {
+  return L.tileLayer(googleTileUrl(lyrs, lang), {
     ...TILE_OPTS,
     attribution: ar
       ? '&copy; <a href="https://www.google.com/maps">خرائط Google</a>'
       : '&copy; <a href="https://www.google.com/maps">Google Maps</a>',
   });
-  layerMeta.set(layer, { locale, style });
-  return layer;
 }
 
 /** Replace the base map with a Google layer for the chosen style. */
@@ -94,12 +88,12 @@ export function setMapDisplayStyle(
   locale: string,
   style: MapDisplayStyle
 ): LeafletTileLayer[] {
-  currentLayers.forEach((layer) => {
-    if (map.hasLayer(layer)) map.removeLayer(layer);
-  });
-
   const layer = createGoogleTileLayer(L, locale, style);
   layer.addTo(map);
+  currentLayers.forEach((old) => {
+    if (old !== layer && map.hasLayer(old)) map.removeLayer(old);
+  });
+  markMapStyle(map, style);
   return [layer];
 }
 
@@ -114,53 +108,16 @@ export function applyHighQualityTiles(
 
 export const MAP_DEFAULTS = {
   maxZoom: 21,
-  zoomSnap: 0.5,
-  zoomDelta: 0.5,
-  wheelPxPerZoomLevel: 80,
-  fadeAnimation: false,
+  minZoom: 3,
+  zoomSnap: 1,
+  zoomDelta: 1,
+  wheelPxPerZoomLevel: 60,
+  fadeAnimation: true,
   zoomAnimation: true,
-  markerZoomAnimation: false,
+  markerZoomAnimation: true,
 } as const;
 
 export const MAP_REFRESH_MS = 20_000;
-/** How often visible Google tiles are requested again. */
-export const MAP_TILE_REDRAW_MS = 45_000;
-
-/**
- * Keep asking Google for the current tiles. Reads `layers.current` on every
- * tick, so switching roadmap / satellite / hybrid does not freeze the source.
- */
-export function startMapTileRefresh(
-  map: LeafletMap,
-  layers: TileLayerBag,
-  intervalMs = MAP_TILE_REDRAW_MS,
-  delayMs = 8_000
-): () => void {
-  let intervalId: number | undefined;
-
-  const tick = () => {
-    if (!map.getContainer()?.isConnected) return;
-    const version = Date.now();
-    layers.current.forEach((layer) => {
-      const meta = layerMeta.get(layer);
-      if (!meta || !map.hasLayer(layer)) return;
-      try {
-        layer.setUrl(googleTileUrl(GOOGLE_LYRS[meta.style], tileLang(meta.locale), version));
-      } catch {
-        // map may be tearing down
-      }
-    });
-  };
-
-  const timeoutId = window.setTimeout(() => {
-    intervalId = window.setInterval(tick, intervalMs);
-  }, delayMs);
-
-  return () => {
-    window.clearTimeout(timeoutId);
-    if (intervalId !== undefined) window.clearInterval(intervalId);
-  };
-}
 
 export function getMapPreconnectHosts(_locale = "ar"): string[] {
   return [0, 1, 2, 3].map((n) => `https://mt${n}.google.com`);

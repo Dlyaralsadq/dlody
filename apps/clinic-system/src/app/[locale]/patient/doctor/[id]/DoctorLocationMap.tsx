@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import {
   applyHighQualityTiles,
   MAP_DEFAULTS,
-  startMapTileRefresh,
   setMapDisplayStyle,
   type MapDisplayStyle,
 } from "@/lib/leafletTiles";
@@ -33,7 +32,6 @@ export default function DoctorLocationMap({
     if (!container) return;
 
     let cancelled = false;
-    let stopRefresh: (() => void) | undefined;
 
     (async () => {
       const L = await loadLeafletMap();
@@ -53,7 +51,6 @@ export default function DoctorLocationMap({
       });
 
       tileLayersRef.current = applyHighQualityTiles(L, map, locale, mapStyle);
-      stopRefresh = startMapTileRefresh(map, tileLayersRef);
       leafletRef.current = L;
 
       const icon = L.divIcon({
@@ -93,7 +90,6 @@ export default function DoctorLocationMap({
 
     return () => {
       cancelled = true;
-      stopRefresh?.();
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
