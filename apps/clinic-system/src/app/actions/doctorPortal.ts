@@ -3,29 +3,38 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { generateId } from "@/lib/utils";
-import { hashPassword, getSession } from "@/lib/auth";
+import { hashPassword, getAppSession } from "@/lib/auth";
 import { normalizeAccountEmail } from "@/lib/realEmail";
+import { deliverEmailCode } from "@/app/actions/contactVerification";
+import { makePendingUsername } from "@/lib/usernamePolicy";
 import { parseCustomTreatmentTypes, type TreatmentTypeOption } from "@/lib/treatmentTypes";
 import { isAppointmentSlotAvailable } from "@/app/actions/appointmentAvailability";
 
 export async function createSecretaryForDoctor(
   doctorId: string,
-  data: { name: string; username: string; password: string }
+  data: { name: string; email: string; password: string }
 ): Promise<{ success: boolean; error?: string }> {
-  const existing = await prisma.user.findUnique({ where: { username: data.username } });
-  if (existing) return { success: false, error: "username_taken" };
+  const checked = await normalizeAccountEmail(data.email);
+  if (checked.status === "error") return { success: false, error: checked.error };
+  if (checked.status !== "ok") return { success: false, error: "email_required" };
+
+  const taken = await prisma.user.findUnique({ where: { email: checked.email } });
+  if (taken) return { success: false, error: "email_taken" };
 
   const hashed = await hashPassword(data.password);
-  await prisma.user.create({
+  const created = await prisma.user.create({
     data: {
-      username: data.username,
+      username: makePendingUsername(),
       password: hashed,
       name: data.name,
+      email: checked.email,
+      emailVerified: false,
       role: "secretary",
       linkedDoctorId: doctorId,
       isActive: true,
     },
   });
+  await deliverEmailCode(created.id, "ar");
 
   revalidatePath("/[locale]/doctor/settings", "page");
   return { success: true };
@@ -34,7 +43,7 @@ export async function createSecretaryForDoctor(
 export async function getSecretariesForDoctorPortal(doctorId: string) {
   return prisma.user.findMany({
     where: { linkedDoctorId: doctorId, role: "secretary" },
-    select: { id: true, username: true, name: true, isActive: true, createdAt: true },
+    select: { id: true, username: true, name: true, email: true, isActive: true, createdAt: true },
     orderBy: { createdAt: "asc" },
   });
 }
@@ -225,7 +234,7 @@ export async function updateDoctorSettings(
   doctorId: string,
   data: Record<string, unknown>
 ): Promise<{ success: boolean; error?: string }> {
-  const session = await getSession();
+  const session = await getAppSession();
   if (!session || session.role !== "doctor") {
     return { success: false, error: "unauthorized" };
   }
@@ -299,7 +308,7 @@ export async function updateRecurringPatientData(
     nextVisitDate?: string | null; // ISO date string "YYYY-MM-DD" or null
   }
 ): Promise<{ success: boolean; error?: string }> {
-  const session = await getSession();
+  const session = await getAppSession();
   if (!session) return { success: false, error: "unauthorized" };
 
   // Verify this patient belongs to this doctor
@@ -330,7 +339,7 @@ export async function saveDoctorTreatmentTypes(
   doctorId: string,
   types: TreatmentTypeOption[]
 ): Promise<{ success: boolean }> {
-  const session = await getSession();
+  const session = await getAppSession();
   if (!session || session.role !== "doctor") return { success: false };
 
   const doctor = await prisma.doctor.findFirst({

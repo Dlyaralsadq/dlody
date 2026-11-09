@@ -23,9 +23,13 @@ export default function PatientLoginForm({ locale }: { locale: string }) {
 
       if (result && !result.success) {
         setError(
-          ar
-            ? "البريد أو رقم الهاتف أو كلمة المرور غير صحيحة"
-            : "Invalid email, phone, or password"
+          result.error === "email_only"
+            ? ar
+              ? "تسجيل الدخول بالبريد الإلكتروني فقط"
+              : "Sign in with your email address"
+            : ar
+              ? "البريد أو كلمة المرور غير صحيحة"
+              : "Invalid email or password"
         );
         setLoading(false);
       }
@@ -44,17 +48,17 @@ export default function PatientLoginForm({ locale }: { locale: string }) {
       )}
 
       <div className="space-y-1.5">
-        <label className="form-label">{ar ? "البريد أو رقم الهاتف" : "Email or phone"}</label>
+        <label className="form-label">{ar ? "البريد الإلكتروني" : "Email"}</label>
         <div className="relative">
           <AtSign className="absolute inset-y-0 start-3.5 my-auto h-4 w-4 text-white/25" />
           <input
             name="identifier"
-            type="text"
+            type="email"
             required
             dir="ltr"
-            autoComplete="username"
+            autoComplete="email"
             className="form-input ps-10 pe-4"
-            placeholder={ar ? "email@example.com أو 07XXXXXXXXX" : "email@example.com or 07XXXXXXXXX"}
+            placeholder="name@gmail.com"
           />
         </div>
       </div>

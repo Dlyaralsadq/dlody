@@ -52,14 +52,19 @@ export default function LoginForm({ locale }: { locale: string }) {
 
           invalid_credentials: ar
 
-            ? "البريد أو الرقم أو كلمة المرور غير صحيحة"
+            ? "البريد أو كلمة المرور غير صحيحة"
 
-            : "Invalid email, phone, or password",
+            : "Invalid email or password",
+
+          email_only: ar
+
+            ? "تسجيل الدخول بالبريد الإلكتروني فقط"
+
+            : "Sign in with your email address",
 
           suspended: ar ? "الحساب موقوف — تواصل مع الإدارة" : "Account suspended — contact admin",
 
           account_incomplete: ar ? "الحساب غير مكتمل — تواصل مع الإدارة" : "Account incomplete — contact admin",
-          email_unverified: ar ? "أكّد البريد أولاً من الحساب، أو ادخل باسم المستخدم أو رقم الهاتف" : "Confirm this email from your account first, or sign in with your username or phone",
 
         };
 
@@ -91,7 +96,7 @@ export default function LoginForm({ locale }: { locale: string }) {
 
       <div className="space-y-1">
 
-        <label className="form-label">{ar ? "البريد أو رقم الهاتف" : "Email or phone"}</label>
+        <label className="form-label">{ar ? "البريد الإلكتروني" : "Email"}</label>
 
         <div className="relative">
 
@@ -111,17 +116,11 @@ export default function LoginForm({ locale }: { locale: string }) {
 
             className="form-input form-input-with-icon"
 
-            placeholder={ar ? "email@example.com أو 07XXXXXXXXX" : "email@example.com or 07XXXXXXXXX"}
+            placeholder="name@gmail.com"
 
           />
 
         </div>
-
-        <p className="form-hint">
-
-          {ar ? "يمكنك أيضاً استخدام اسم المستخدم إن وُجد" : "Username still works if you have one"}
-
-        </p>
 
       </div>
 

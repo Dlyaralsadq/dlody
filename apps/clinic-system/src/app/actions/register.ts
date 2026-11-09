@@ -1,9 +1,10 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { hashPassword, login, setSessionCookie } from "@/lib/auth";
+import { hashPassword, login, setSessionCookie, getSession, getAuthenticatedRedirectPath, createSession } from "@/lib/auth";
 import { normalizeAccountEmail } from "@/lib/realEmail";
 import { deliverEmailCode } from "@/app/actions/contactVerification";
+import { isValidChosenUsername, makePendingUsername, needsChosenUsername } from "@/lib/usernamePolicy";
 
 function generatePatientNumber(): string {
   return `DR-${Date.now().toString().slice(-6)}`;
@@ -12,7 +13,6 @@ function generatePatientNumber(): string {
 export async function registerDoctor(data: {
   nameAr: string;
   name: string;
-  username: string;
   password: string;
   phone: string;
   email?: string;
@@ -28,12 +28,7 @@ export async function registerDoctor(data: {
   const checkedEmail = await normalizeAccountEmail(data.email);
   if (checkedEmail.status === "error") return { success: false, error: checkedEmail.error };
   const email = checkedEmail.status === "ok" ? checkedEmail.email : null;
-
-  // Check username availability
-  const existing = await prisma.user.findUnique({
-    where: { username: data.username },
-  });
-  if (existing) return { success: false, error: "username_taken" };
+  if (!email) return { success: false, error: "email_required" };
 
   const phone = data.phone.replace(/\D/g, "");
   if (phone.length < 7) return { success: false, error: "invalid_phone" };
@@ -62,7 +57,7 @@ export async function registerDoctor(data: {
   const created = await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
       data: {
-        username: data.username,
+        username: makePendingUsername(),
         password: hashedPwd,
         name: data.nameAr || data.name,
         role: "doctor",
@@ -95,17 +90,44 @@ export async function registerDoctor(data: {
   });
 
   const locale = data.locale || "ar";
-  if (email) {
-    const sent = await deliverEmailCode(created.id, locale);
-    const session = await login(data.username, data.password);
-    if (session.success && session.session) {
-      await setSessionCookie(session.session);
-      return {
-        success: true,
-        redirectTo: sent.success ? `/${locale}/verify-contact?sent=email` : `/${locale}/verify-contact`,
-      };
-    }
+  await deliverEmailCode(created.id, locale);
+  const session = await login(email, data.password);
+  if (session.success && session.session) {
+    await setSessionCookie(session.session);
+    return { success: true, redirectTo: `/${locale}/verify-contact?sent=email` };
   }
 
-  return { success: true };
+  return { success: false, error: "register_failed" };
+}
+
+/** Chosen after the inbox confirms the code. Login itself stays on the email. */
+export async function claimUsername(
+  usernameRaw: string,
+  locale: string = "ar"
+): Promise<{ success: boolean; error?: string; redirectTo?: string }> {
+  const session = await getSession();
+  if (!session) return { success: false, error: "unauthorized" };
+
+  const user = await prisma.user.findUnique({ where: { id: session.userId } });
+  if (!user) return { success: false, error: "unauthorized" };
+  if (user.role === "admin") return { success: false, error: "unauthorized" };
+  if (!user.emailVerified) return { success: false, error: "email_unverified" };
+  if (!needsChosenUsername(user.username)) return { success: false, error: "username_set" };
+
+  const username = usernameRaw.trim();
+  if (!isValidChosenUsername(username)) return { success: false, error: "invalid_username" };
+
+  const taken = await prisma.user.findFirst({
+    where: { username: { equals: username, mode: "insensitive" }, NOT: { id: user.id } },
+  });
+  if (taken) return { success: false, error: "username_taken" };
+
+  await prisma.user.update({ where: { id: user.id }, data: { username } });
+  const token = await createSession(user.id, username, user.name, user.role, user.isActive);
+  await setSessionCookie(token);
+  const redirectTo = await getAuthenticatedRedirectPath(
+    { userId: user.id, username, name: user.name, role: user.role, isActive: user.isActive },
+    locale
+  );
+  return { success: true, redirectTo: redirectTo ?? `/${locale}` };
 }

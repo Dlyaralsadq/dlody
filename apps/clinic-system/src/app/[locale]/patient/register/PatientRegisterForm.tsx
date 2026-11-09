@@ -26,6 +26,7 @@ export default function PatientRegisterForm({ locale }: { locale: string }) {
     } else {
       const msgs: Record<string, string> = {
         phone_taken: ar ? "رقم الهاتف مسجّل مسبقاً" : "Phone already registered",
+        email_required: ar ? "البريد الإلكتروني مطلوب" : "Email is required",
         email_taken: ar ? "البريد مسجّل مسبقاً" : "Email already registered",
         invalid_email: ar ? "بريد غير صالح" : "Invalid email",
         unreal_email: ar ? "هذا البريد غير حقيقي أو لا يستقبل الرسائل. استخدم بريدك الفعلي" : "This email is not a real inbox. Use an address that can receive mail",
@@ -60,18 +61,18 @@ export default function PatientRegisterForm({ locale }: { locale: string }) {
           <input name="phone" type="tel" required dir="ltr" className="form-input ps-10 pe-4" placeholder="07XXXXXXXXX" />
         </div>
         <p className="text-[11px] text-white/30">
-          {ar ? "سيتم تأكيده لاحقاً عبر واتساب" : "You'll verify it later via WhatsApp"}
+          {ar ? "للتواصل والحجز، وليس لتسجيل الدخول" : "For contact and booking. Sign-in uses email"}
         </p>
       </div>
 
       <div className="space-y-1.5">
-        <label className="form-label">{ar ? "البريد الإلكتروني (اختياري)" : "Email (optional)"}</label>
+        <label className="form-label">{ar ? "البريد الإلكتروني" : "Email"}</label>
         <div className="relative">
           <Mail className="absolute inset-y-0 start-3.5 my-auto h-4 w-4 text-white/25" />
-          <input name="email" type="email" dir="ltr" className="form-input ps-10 pe-4" placeholder="name@gmail.com" />
+          <input name="email" type="email" required dir="ltr" className="form-input ps-10 pe-4" placeholder="name@gmail.com" />
         </div>
         <p className="text-[11px] text-white/30">
-          {ar ? "إن أضفته يجب أن يكون بريداً حقيقياً. يصل رمز التأكيد إلى هذا الصندوق" : "If you add one, it must be a real inbox. The confirmation code is sent there"}
+          {ar ? "يصل إليه رمز التأكيد. الحساب لا يفتح قبل إدخال الرمز، ثم تختار اسم المستخدم" : "The confirmation code arrives here. The account opens after the code, then you choose a username"}
         </p>
       </div>
 

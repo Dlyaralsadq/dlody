@@ -22,11 +22,11 @@ export default async function PatientAccountPage({
     redirect(`/${locale}/patient/login`);
   }
 
-  const [appointments, profile, contactStatus] = await Promise.all([
-    getPatientAppointments(session.username),
+  const [profile, contactStatus] = await Promise.all([
     getPatientProfile(session.userId),
     getContactVerificationStatus(session.userId),
   ]);
+  const appointments = await getPatientAppointments(profile?.phone ?? "");
 
   const initial = profile?.name?.[0]?.toUpperCase() ?? "P";
 
@@ -48,7 +48,11 @@ export default async function PatientAccountPage({
           </div>
           <div>
             <p className="font-bold text-white text-lg">{profile?.name ?? session.name}</p>
-            <p className="text-sm text-white/40 mt-0.5" dir="ltr">{session.username}</p>
+            <p className="text-sm text-white/40 mt-0.5" dir="ltr">
+              {profile?.username && !profile.username.startsWith("pending_") && !/^\d{7,}$/.test(profile.username)
+                ? `@${profile.username}`
+                : (profile?.email ?? "")}
+            </p>
             <p className="text-[11px] text-cyan-400/80 mt-1">
               {appointments.length} {ar ? "موعد" : "appointments"}
             </p>
@@ -60,7 +64,7 @@ export default async function PatientAccountPage({
             <h2 className="text-sm font-semibold flex items-center gap-2" style={{ color: "var(--text-1)" }}>
               <ShieldCheck size={15} className="text-cyan-400" />
               {ar ? "تأكيد البريد والهاتف" : "Verify email & phone"}
-              <InfoTooltip locale={locale} text={ar ? "الدخول بالبريد أو الرقم. تأكيد الرقم عبر واتساب، وتأكيد البريد عبر SMS." : "Sign in with email or phone. Verify phone via WhatsApp, email via SMS."} />
+              <InfoTooltip locale={locale} text={ar ? "الدخول بالبريد بعد تأكيد الرمز. رقم الهاتف للتواصل والحجز فقط." : "Sign in with your confirmed email. The phone number is for contact and booking."} />
             </h2>
             <ContactVerifyPanel
               locale={locale}
@@ -85,7 +89,7 @@ export default async function PatientAccountPage({
               gender: profile?.gender ?? null,
               dateOfBirth: profile?.dateOfBirth ? profile.dateOfBirth.toISOString().slice(0, 10) : null,
               bloodType: profile?.bloodType ?? null,
-              phone: profile?.username ?? session.username,
+              phone: profile?.phone ?? "",
               avatarUrl: profile?.avatarUrl ?? null,
               nationalId: profile?.nationalId ?? null,
               emergencyContact: profile?.emergencyContact ?? null,
@@ -95,7 +99,7 @@ export default async function PatientAccountPage({
           <PatientAccountClient
             locale={locale}
             userName={session.name}
-            phone={session.username}
+            phone={profile?.phone ?? ""}
             appointments={appointments as any}
           />
         </div>

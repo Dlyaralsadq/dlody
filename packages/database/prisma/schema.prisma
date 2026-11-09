@@ -15,10 +15,10 @@ model User {
   role            String    @default("admin")
   isActive        Boolean   @default(true)
   linkedDoctorId  String?
-  /// Login + contact: optional email (unique when set). Verified via SMS to the user's phone.
+  /// Login identifier. The account stays closed until this inbox confirms the code.
   email           String?   @unique
   emailVerified   Boolean   @default(false)
-  /// Login + contact: digits-only phone. Verified via WhatsApp OTP.
+  /// Contact number for the clinic. Not accepted at sign-in.
   phone           String?
   phoneVerified   Boolean   @default(false)
   gender          String?

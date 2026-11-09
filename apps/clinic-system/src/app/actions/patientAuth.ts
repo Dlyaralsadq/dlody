@@ -3,7 +3,8 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { hashPassword, login, setSessionCookie, getSession } from "@/lib/auth";
+import { hashPassword, login, setSessionCookie, getAppSession, getAuthenticatedRedirectPath, decodeSessionToken } from "@/lib/auth";
+import { makePendingUsername } from "@/lib/usernamePolicy";
 import { calcAge } from "@/lib/requirePatient";
 import { saveAvatarFile } from "@/lib/postMediaUpload";
 import { normalizeAccountEmail } from "@/lib/realEmail";
@@ -20,6 +21,8 @@ export async function getPatientProfile(userId: string) {
       id: true,
       name: true,
       username: true,
+      phone: true,
+      email: true,
       gender: true,
       dateOfBirth: true,
       bloodType: true,
@@ -66,7 +69,7 @@ export async function updatePatientProfile(
 export async function uploadPatientAvatar(
   formData: FormData
 ): Promise<{ success: boolean; url?: string; error?: string }> {
-  const session = await getSession();
+  const session = await getAppSession();
   if (!session || session.role !== "patient") return { success: false, error: "unauthorized" };
 
   const file = formData.get("file");
@@ -102,6 +105,7 @@ export async function registerPatientAction(formData: FormData) {
   const checkedEmail = await normalizeAccountEmail(emailRaw);
   if (checkedEmail.status === "error") return { success: false, error: checkedEmail.error };
   const email = checkedEmail.status === "ok" ? checkedEmail.email : null;
+  if (!email) return { success: false, error: "email_required" };
 
   if (!name || phone.length < 10 || !password || password.length < 6) {
     return { success: false, error: "invalid_data" };
@@ -122,7 +126,7 @@ export async function registerPatientAction(formData: FormData) {
   const hashed = await hashPassword(password);
   const created = await prisma.user.create({
     data: {
-      username: phone,
+      username: makePendingUsername(),
       phone,
       phoneVerified: false,
       email,
@@ -137,13 +141,12 @@ export async function registerPatientAction(formData: FormData) {
     },
   });
 
-  const sent = email ? await deliverEmailCode(created.id, locale) : null;
-  const result = await login(phone, password, 60 * 60 * 24 * 30);
+  await deliverEmailCode(created.id, locale);
+  const result = await login(email, password, 60 * 60 * 24 * 30);
   if (result.success && result.session) {
     await setSessionCookie(result.session, 60 * 60 * 24 * 30);
     revalidatePath(`/${locale}/patient`);
-    const sentQuery = sent?.success ? "?sent=email" : "";
-    return { success: true, redirectTo: `/${locale}/verify-contact${sentQuery}` };
+    return { success: true, redirectTo: `/${locale}/verify-contact?sent=email` };
   }
 
   return { success: false, error: "register_failed" };
@@ -157,11 +160,16 @@ export async function patientLoginAction(formData: FormData) {
 
   const result = await login(identifier, password, 60 * 60 * 24 * 30);
   if (!result.success || result.role !== "patient" || !result.session) {
-    return { success: false as const, error: "invalid_credentials" };
+    return { success: false as const, error: result.error === "email_only" ? "email_only" : "invalid_credentials" };
   }
+
+  const session = decodeSessionToken(result.session);
+  if (!session) return { success: false as const, error: "invalid_credentials" };
 
   await setSessionCookie(result.session, 60 * 60 * 24 * 30);
   revalidatePath(`/${locale}/patient`);
+  const dest = await getAuthenticatedRedirectPath(session, locale);
+  if (dest?.includes("/verify-contact") || dest?.includes("/choose-username")) redirect(dest);
   redirect(`/${locale}/patient/updates`);
 }
 

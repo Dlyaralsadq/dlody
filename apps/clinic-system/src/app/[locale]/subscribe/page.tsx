@@ -1,4 +1,4 @@
-import { getSession } from "@/lib/auth";
+import { accountIsOpen, getAuthenticatedRedirectPath, getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import {
@@ -24,6 +24,9 @@ export default async function SubscribePage({
 
   if (!session) redirect(`/${locale}/login`);
   if (session.role === "admin") redirect(`/${locale}/admin`);
+  if (!(await accountIsOpen(session))) {
+    redirect((await getAuthenticatedRedirectPath(session, locale)) ?? `/${locale}/verify-contact`);
+  }
 
   const [doctor, pricing] = await Promise.all([
     session.role === "doctor" ? getDoctorByUserId(session.userId) : Promise.resolve(null),

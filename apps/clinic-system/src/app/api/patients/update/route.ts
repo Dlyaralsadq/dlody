@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
+import { getAppSession } from "@/lib/auth";
 
 export async function PATCH(request: NextRequest) {
-  const session = await getSession();
+  const session = await getAppSession();
   if (!session || !["doctor", "secretary", "admin"].includes(session.role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

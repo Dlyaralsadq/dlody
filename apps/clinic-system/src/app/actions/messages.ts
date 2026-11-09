@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { getSession } from "@/lib/auth";
+import { getAppSession } from "@/lib/auth";
 
 export async function sendMessage(fromUserId: string, toUserId: string, content: string) {
   await prisma.message.create({
@@ -127,7 +127,7 @@ export async function sendSystemNotification(
   toUserId: string | null,
   content: string
 ): Promise<{ success: boolean; sent: number }> {
-  const session = await getSession();
+  const session = await getAppSession();
   if (!session || session.role !== "admin") return { success: false, sent: 0 };
 
   if (toUserId) {

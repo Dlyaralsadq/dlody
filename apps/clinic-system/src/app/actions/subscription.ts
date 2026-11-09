@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { getSession } from "@/lib/auth";
+import { getAppSession } from "@/lib/auth";
 import { sendMessage, getAdminUserId } from "./messages";
 
 const DEFAULT_MONTHLY = 50000;
@@ -28,7 +28,7 @@ export async function updateSubscriptionPricing(
   monthlyPrice: number,
   yearlyPrice: number
 ): Promise<{ success: boolean; error?: string }> {
-  const session = await getSession();
+  const session = await getAppSession();
   if (!session || session.role !== "admin") return { success: false, error: "unauthorized" };
 
   const monthly = Math.round(Number(monthlyPrice));

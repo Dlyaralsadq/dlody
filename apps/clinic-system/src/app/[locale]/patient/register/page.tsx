@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getSession, getAuthenticatedRedirectPath, clearSession } from "@/lib/auth";
+import { getSession, getAuthenticatedRedirectPath } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import PatientRegisterForm from "./PatientRegisterForm";
 
@@ -15,7 +15,7 @@ export default async function PatientRegisterPage({
   if (session) {
     const dest = await getAuthenticatedRedirectPath(session, locale);
     if (dest) redirect(dest);
-    await clearSession();
+    redirect(`/api/session/clear?next=/${locale}/patient/register`);
   }
 
   return (

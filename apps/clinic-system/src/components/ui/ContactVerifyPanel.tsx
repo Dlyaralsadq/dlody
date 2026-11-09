@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Mail, Phone, MessageSquare, CheckCircle2 } from "lucide-react";
 import {
   requestContactVerification,
@@ -17,6 +18,8 @@ export default function ContactVerifyPanel({
   emailVerified,
   phoneVerified,
   emailCodeSent = false,
+  emailOnly = false,
+  refreshOnEmailVerified = false,
 }: {
   locale: string;
   initialEmail?: string | null;
@@ -24,8 +27,13 @@ export default function ContactVerifyPanel({
   emailVerified: boolean;
   phoneVerified: boolean;
   emailCodeSent?: boolean;
+  /** Hide phone confirmation. Used before the account opens. */
+  emailOnly?: boolean;
+  /** Reload so the server can send the person to the username step. */
+  refreshOnEmailVerified?: boolean;
 }) {
   const ar = locale === "ar";
+  const router = useRouter();
   const [email, setEmail] = useState(initialEmail ?? "");
   const [phone, setPhone] = useState(initialPhone ?? "");
   const [emailDone, setEmailDone] = useState(emailVerified);
@@ -33,10 +41,11 @@ export default function ContactVerifyPanel({
 
   return (
     <div className="space-y-4">
+      {!emailOnly && (
       <VerifyBlock
         locale={locale}
         purpose="phone"
-        title={ar ? "تأكيد رقم الهاتف عبر واتساب" : "Verify phone via WhatsApp"}
+        title={ar ? "تأكيد رقم الهاتف" : "Confirm phone"}
         hint={
           ar
             ? "سنرسل رمز تأكيد عبر رسالة واتساب إلى رقمك"
@@ -51,6 +60,7 @@ export default function ContactVerifyPanel({
         Icon={Phone}
         channelIcon={MessageSquare}
       />
+      )}
       <VerifyBlock
         locale={locale}
         purpose="email"
@@ -63,7 +73,10 @@ export default function ContactVerifyPanel({
         value={email}
         onValueChange={setEmail}
         verified={emailDone}
-        onVerified={() => setEmailDone(true)}
+        onVerified={() => {
+          setEmailDone(true);
+          if (refreshOnEmailVerified) router.refresh();
+        }}
         inputType="email"
         placeholder="name@gmail.com"
         startAtCode={emailCodeSent}

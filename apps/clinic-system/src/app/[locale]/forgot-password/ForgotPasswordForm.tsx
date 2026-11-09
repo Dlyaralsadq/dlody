@@ -208,7 +208,7 @@ export default function ForgotPasswordForm({ locale }: { locale: string }) {
       )}
 
       <div className="space-y-1.5">
-        <label className="form-label">{ar ? "رقم الهاتف أو البريد الإلكتروني" : "Phone number or email"}</label>
+        <label className="form-label">{ar ? "البريد الإلكتروني" : "Email"}</label>
         <div className="relative">
           <Mail className="absolute inset-y-0 start-3.5 my-auto h-4 w-4 text-white/25" />
           <input
@@ -217,7 +217,8 @@ export default function ForgotPasswordForm({ locale }: { locale: string }) {
             required
             dir="ltr"
             className="form-input ps-10 pe-4"
-            placeholder={ar ? "07XXXXXXXXX أو name@email.com" : "07XXXXXXXXX or name@email.com"}
+            type="email"
+            placeholder="name@gmail.com"
           />
         </div>
       </div>

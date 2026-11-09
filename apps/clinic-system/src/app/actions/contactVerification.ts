@@ -220,8 +220,6 @@ export async function requestContactVerification(
     data: {
       phone: phoneRaw,
       phoneVerified: false,
-      // Keep patient login username in sync with phone when they are a patient.
-      ...(user.role === "patient" ? { username: phoneRaw } : {}),
     },
   });
   if (user.doctor) {

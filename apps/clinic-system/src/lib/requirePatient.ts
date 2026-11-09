@@ -1,10 +1,13 @@
-import { getSession } from "@/lib/auth";
+import { accountIsOpen, getAuthenticatedRedirectPath, getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
 export async function requirePatient(locale: string) {
   const session = await getSession();
   if (!session || session.role !== "patient") {
     redirect(`/${locale}/patient/login`);
+  }
+  if (!(await accountIsOpen(session))) {
+    redirect((await getAuthenticatedRedirectPath(session, locale)) ?? `/${locale}/verify-contact`);
   }
   return session;
 }

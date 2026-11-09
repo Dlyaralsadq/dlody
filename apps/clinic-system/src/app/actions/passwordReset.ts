@@ -9,10 +9,6 @@ const CODE_TTL_MINUTES = 10;
 const MAX_ATTEMPTS = 5;
 const MAX_REQUESTS_PER_HOUR = 5;
 
-function normalizeDigits(v: string): string {
-  return v.replace(/\D/g, "");
-}
-
 function isEmail(v: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 }
@@ -31,43 +27,14 @@ async function findUserByIdentifier(identifierRaw: string): Promise<{
   const identifier = identifierRaw.trim();
   if (!identifier) return null;
 
-  if (isEmail(identifier)) {
-    const email = identifier.toLowerCase();
-    const byUserEmail = await prisma.user.findUnique({ where: { email } });
-    if (byUserEmail) {
-      const phone = byUserEmail.phone ?? (byUserEmail.username.match(/^\d{7,}$/) ? byUserEmail.username : "");
-      return {
-        user: byUserEmail,
-        method: phone ? "phone" : "email",
-        destination: phone || email,
-      };
-    }
-    const doctor = await prisma.doctor.findUnique({ where: { email }, include: { user: true } });
-    if (doctor?.user) return { user: doctor.user, method: "email", destination: email };
-    return null;
-  }
+  if (!isEmail(identifier)) return null;
 
-  const digits = normalizeDigits(identifier);
-  if (digits.length >= 7) {
-    const byPhone = await prisma.user.findFirst({
-      where: { OR: [{ phone: digits }, { username: digits }] },
-    });
-    if (byPhone) return { user: byPhone, method: "phone", destination: digits };
+  const email = identifier.toLowerCase();
+  const byUserEmail = await prisma.user.findUnique({ where: { email } });
+  if (byUserEmail) return { user: byUserEmail, method: "email", destination: email };
 
-    const doctor = await prisma.doctor.findFirst({ where: { phone: digits }, include: { user: true } });
-    if (doctor?.user) return { user: doctor.user, method: "phone", destination: digits };
-  }
-
-  // Fall back to treating it as a plain username (admin / doctor / secretary logins).
-  const byUsername = await prisma.user.findUnique({ where: { username: identifier } });
-  if (byUsername) {
-    const linkedDoctor = await prisma.doctor.findUnique({ where: { userId: byUsername.id } });
-    if (linkedDoctor?.email) return { user: byUsername, method: "email", destination: linkedDoctor.email };
-    if (linkedDoctor?.phone) return { user: byUsername, method: "phone", destination: linkedDoctor.phone };
-    if (byUsername.emergencyPhone) return { user: byUsername, method: "phone", destination: byUsername.emergencyPhone };
-    return { user: byUsername, method: "none", destination: "" };
-  }
-
+  const doctor = await prisma.doctor.findUnique({ where: { email }, include: { user: true } });
+  if (doctor?.user) return { user: doctor.user, method: "email", destination: email };
   return null;
 }
 

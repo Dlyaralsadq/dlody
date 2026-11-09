@@ -1,4 +1,4 @@
-import { getSession, getAuthenticatedRedirectPath, clearSession } from "@/lib/auth";
+import { getSession, getAuthenticatedRedirectPath } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
@@ -18,7 +18,7 @@ export default async function RegisterPage({
   if (session) {
     const dest = await getAuthenticatedRedirectPath(session, locale);
     if (dest) redirect(dest);
-    await clearSession();
+    redirect(`/api/session/clear?next=/${locale}/register`);
   }
 
   const specialties = await prisma.specialty.findMany({

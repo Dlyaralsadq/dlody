@@ -2,14 +2,14 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { getSession } from "@/lib/auth";
+import { getAppSession } from "@/lib/auth";
 import { getDoctorByUserId } from "@/app/actions/doctorPortal";
 import { saveStoryMediaFile } from "@/lib/postMediaUpload";
 
 const STORY_HOURS = 24;
 
 async function requireDoctor() {
-  const session = await getSession();
+  const session = await getAppSession();
   if (!session || session.role !== "doctor") return null;
   const doctor = await getDoctorByUserId(session.userId);
   if (!doctor) return null;

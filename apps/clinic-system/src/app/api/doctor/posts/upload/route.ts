@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { getAppSession } from "@/lib/auth";
 import { savePostMediaFile } from "@/lib/postMediaUpload";
 
 export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
-  const session = await getSession();
+  const session = await getAppSession();
   if (!session || session.role !== "doctor") {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }

@@ -57,7 +57,6 @@ export default function DoctorRegisterForm({
     const result = await registerDoctor({
       nameAr:            fd.get("nameAr") as string,
       name:              fd.get("name") as string,
-      username:          fd.get("username") as string,
       password:          pwd,
       phone:             fd.get("phone") as string,
       email:             (fd.get("email") as string) || undefined,
@@ -80,8 +79,8 @@ export default function DoctorRegisterForm({
       setStep("done");
     } else {
       const msgs: Record<string, { ar: string; en: string }> = {
-        username_taken:   { ar: "اسم المستخدم محجوز، اختر اسماً آخر", en: "Username already taken" },
         phone_taken:      { ar: "رقم الهاتف مسجّل مسبقاً", en: "Phone already registered" },
+        email_required:   { ar: "البريد الإلكتروني مطلوب", en: "Email is required" },
         email_taken:      { ar: "البريد مسجّل مسبقاً", en: "Email already registered" },
         invalid_email:    { ar: "بريد غير صالح", en: "Invalid email" },
         unreal_email:     { ar: "هذا البريد غير حقيقي أو لا يستقبل الرسائل. استخدم بريدك الفعلي", en: "This email is not a real inbox. Use an address that can receive mail" },
@@ -105,8 +104,8 @@ export default function DoctorRegisterForm({
         </h2>
         <p className="text-sm text-white/50 mb-6 max-w-xs">
           {ar
-            ? "يمكنك الآن تسجيل الدخول باسم المستخدم. إذا أضفت بريداً، أكّده بعد الدخول حتى يُقبل في تسجيل الدخول. لفتح نظام العيادة تواصل مع مدير المنصة للاشتراك."
-            : "You can now sign in with your username. If you added an email, confirm it after signing in before it can be used to log in. Contact the platform admin to unlock the clinic system."}
+            ? "أكّد البريد أولاً، ثم اختر اسم المستخدم. الحساب لا يفتح قبل تأكيد البريد."
+            : "Confirm your email first, then choose a username. The account stays closed until the email is confirmed."}
         </p>
         <button
           onClick={() => router.push(`/${locale}/login`)}
@@ -185,21 +184,21 @@ export default function DoctorRegisterForm({
           />
           <Phone size={13} className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-white/25" />
         </div>
-        <p className="mt-1 text-[11px] text-white/30">{ar ? "يُؤكد لاحقاً عبر واتساب" : "Verified later via WhatsApp"}</p>
+        <p className="mt-1 text-[11px] text-white/30">{ar ? "للتواصل مع العيادة، وليس لتسجيل الدخول" : "For the clinic to reach you. Sign-in uses email"}</p>
       </div>
 
       {/* Email */}
       <div>
-        <label className="form-label">{ar ? "البريد الإلكتروني" : "Email"}</label>
+        <label className="form-label">{ar ? "البريد الإلكتروني *" : "Email *"}</label>
         <div className="relative">
           <input
-            name="email" type="email" dir="ltr"
+            name="email" type="email" required dir="ltr"
             placeholder="name@gmail.com"
             className="w-full rounded-xl border border-white/10 bg-[#0c1121] ps-4 pe-9 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-indigo-500/50"
           />
           <User size={13} className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-white/25" />
         </div>
-        <p className="mt-1 text-[11px] text-white/30">{ar ? "اختياري. إن أضفته يجب أن يكون بريداً حقيقياً، ويصله رمز التأكيد قبل أن يُستخدم للدخول" : "Optional. If you add one, it must be a real inbox and is confirmed before it can be used to sign in"}</p>
+        <p className="mt-1 text-[11px] text-white/30">{ar ? "يصل إليه رمز التأكيد. الحساب لا يفتح قبل إدخال الرمز، ثم تختار اسم المستخدم" : "The confirmation code arrives here. The account opens after the code, then you choose a username"}</p>
       </div>
 
       {/* Location */}
@@ -257,16 +256,6 @@ export default function DoctorRegisterForm({
       </div>
 
       <hr className="border-white/8" />
-
-      {/* Username */}
-      <div>
-        <label className="form-label">{ar ? "اسم المستخدم *" : "Username *"}</label>
-        <input
-          name="username" required dir="ltr" autoComplete="username"
-          placeholder={ar ? "مثال: dr.ahmed" : "e.g. dr.ahmed"}
-          className="w-full rounded-xl border border-white/10 bg-[#0c1121] px-4 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-indigo-500/50"
-        />
-      </div>
 
       {/* Passwords */}
       <div className="grid grid-cols-2 gap-3">

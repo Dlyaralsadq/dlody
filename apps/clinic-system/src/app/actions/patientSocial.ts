@@ -2,11 +2,11 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { getSession } from "@/lib/auth";
+import { getAppSession } from "@/lib/auth";
 import { getActiveStoryDoctorIds } from "@/app/actions/doctorStories";
 
 async function requirePatientUser() {
-  const session = await getSession();
+  const session = await getAppSession();
   if (!session || session.role !== "patient") return null;
   return session;
 }

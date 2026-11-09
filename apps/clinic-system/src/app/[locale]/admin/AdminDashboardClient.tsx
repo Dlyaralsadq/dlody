@@ -131,6 +131,7 @@ export default function AdminDashboardClient({ stats, doctors, specialties, subs
     if (r.error === "email_taken") setErrors({ email: ar ? "البريد مستخدم مسبقاً" : "Email already in use" });
     if (r.error === "invalid_email" || r.error === "unreal_email") setErrors({ email: ar ? "أدخل بريداً حقيقياً يستقبل الرسائل" : "Enter a real email that can receive mail" });
     if (r.error === "email_check_failed") setErrors({ email: ar ? "تعذر التحقق من نطاق البريد" : "Could not check this email domain" });
+    if (r.error === "email_required") setErrors({ email: ar ? "البريد مطلوب لتسجيل الدخول" : "Email is required to sign in" });
     return false;
   };
 
@@ -173,7 +174,7 @@ export default function AdminDashboardClient({ stats, doctors, specialties, subs
     e.preventDefault();
     if (!selected) return;
     const fd = new FormData(e.currentTarget);
-    const ok = await act(() => createSecretaryAccount(selected.id, fd.get("username") as string, fd.get("password") as string, fd.get("name") as string));
+    const ok = await act(() => createSecretaryAccount(selected.id, fd.get("email") as string, fd.get("password") as string, fd.get("name") as string));
     if (ok) { setSecOpen(false); showToast(ar ? "تم إنشاء حساب السكرتير" : "Secretary account created"); }
   };
 
@@ -461,8 +462,9 @@ export default function AdminDashboardClient({ stats, doctors, specialties, subs
             </div>
             <div className="grid grid-cols-2 gap-3">
               <Select name="specialtyId" label={ar ? "التخصص" : "Specialty"} options={specOpts} placeholder={ar ? "اختر" : "Select"} required />
-              <Input name="phone" type="tel" label={ar ? "الهاتف" : "Phone"} placeholder="+966 5x xxx xxxx" />
+              <Input name="phone" type="tel" label={ar ? "الهاتف" : "Phone"} placeholder="07XXXXXXXXX" />
             </div>
+            <Input name="email" type="email" label={ar ? "البريد الإلكتروني" : "Email"} required error={errors.email} placeholder="name@gmail.com" />
             <div className="grid grid-cols-3 gap-3">
               <Input name="licenseNumber" label={ar ? "رقم الترخيص" : "License #"} />
               <Input name="exp" type="number" min="0" label={ar ? "سنوات الخبرة" : "Experience"} />
@@ -622,7 +624,7 @@ export default function AdminDashboardClient({ stats, doctors, specialties, subs
         </>}>
         <form id="sec-form" onSubmit={handleSec} className="space-y-3">
           <Input name="name" label={ar ? "الاسم" : "Name"} required placeholder={ar ? "اسم السكرتير" : "Secretary name"} />
-          <Input name="username" label={ar ? "اسم المستخدم" : "Username"} required error={errors.username} placeholder="secretary.name" />
+          <Input name="email" type="email" label={ar ? "البريد الإلكتروني" : "Email"} required error={errors.email} placeholder="name@gmail.com" />
           <Input name="password" type="password" label={ar ? "كلمة المرور" : "Password"} required placeholder="••••••••" />
         </form>
       </Modal>

@@ -1,4 +1,4 @@
-import { requireAuth, clearSession } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { getDoctorByUserId } from "@/app/actions/doctorPortal";
@@ -17,10 +17,7 @@ export default async function DoctorPage({ params }: { params: Promise<{ locale:
   if (session.role !== "doctor") redirect(`/${locale}/admin`);
 
   const doctor = await getDoctorByUserId(session.userId);
-  if (!doctor) {
-    await clearSession();
-    redirect(`/${locale}/login`);
-  }
+  if (!doctor) redirect(`/api/session/clear?next=/${locale}/login`);
 
   // Gate full clinic management behind active subscription.
   // Doctor settings (profile/location) are always accessible.

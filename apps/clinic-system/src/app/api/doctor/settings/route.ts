@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
+import { getAppSession } from "@/lib/auth";
 
 export async function PATCH(request: NextRequest) {
-  const session = await getSession();
+  const session = await getAppSession();
   if (!session || session.role !== "doctor") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

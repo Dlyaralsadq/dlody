@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
+import { needsChosenUsername } from "./usernamePolicy";
 
 export interface Session {
   userId: string;
@@ -89,8 +90,37 @@ export async function clearSession(): Promise<void> {
   cookieStore.delete(SESSION_COOKIE);
 }
 
+/** Non-admin accounts stay on email confirmation, then username choice, before the clinic. */
+export async function accountIsOpen(session: Session): Promise<boolean> {
+  if (session.role === "admin") return true;
+  const user = await prisma.user.findUnique({
+    where: { id: session.userId },
+    select: { emailVerified: true, username: true },
+  });
+  if (!user?.emailVerified) return false;
+  if (needsChosenUsername(user.username)) return false;
+  return true;
+}
+
+/** Session that may use the clinic. Pending email or username returns null. */
+export async function getAppSession(): Promise<Session | null> {
+  const session = await getSession();
+  if (!session) return null;
+  if (!(await accountIsOpen(session))) return null;
+  return session;
+}
+
 /** Returns redirect path for a valid session, or null if cookie is stale/invalid. */
 export async function getAuthenticatedRedirectPath(session: Session, locale: string): Promise<string | null> {
+  if (session.role !== "admin") {
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId },
+      select: { emailVerified: true, username: true },
+    });
+    if (!user) return null;
+    if (!user.emailVerified) return `/${locale}/verify-contact`;
+    if (needsChosenUsername(user.username)) return `/${locale}/choose-username`;
+  }
   if (session.role === "admin") return `/${locale}/admin`;
   if (session.role === "secretary") {
     const user = await prisma.user.findUnique({ where: { id: session.userId }, select: { linkedDoctorId: true } });
@@ -115,6 +145,10 @@ export async function requireAuth(locale: string = "ar"): Promise<Session> {
   if (!session.isActive && session.role !== "admin") {
     redirect(`/${locale}/suspended`);
   }
+  if (!(await accountIsOpen(session))) {
+    const dest = await getAuthenticatedRedirectPath(session, locale);
+    redirect(dest ?? `/${locale}/verify-contact`);
+  }
   return session;
 }
 
@@ -122,13 +156,9 @@ function isEmailLike(v: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 }
 
-function normalizeDigits(v: string): string {
-  return v.replace(/\D/g, "");
-}
-
 /**
- * Resolve a login identifier to a User: email, phone digits, or username.
- * Order: email → phone (User.phone / username / Doctor.phone) → username.
+ * Sign-in is the confirmed email. The platform admin may still use the
+ * username, because that account has no separate inbox gate.
  */
 export async function findUserByLoginIdentifier(identifierRaw: string) {
   const identifier = identifierRaw.trim();
@@ -146,24 +176,12 @@ export async function findUserByLoginIdentifier(identifierRaw: string) {
     return null;
   }
 
-  const digits = normalizeDigits(identifier);
-  if (digits.length >= 7) {
-    const byPhone = await prisma.user.findFirst({
-      where: { OR: [{ phone: digits }, { username: digits }] },
-    });
-    if (byPhone) return byPhone;
-
-    const doctor = await prisma.doctor.findFirst({
-      where: { phone: digits },
-      include: { user: true },
-    });
-    if (doctor?.user) return doctor.user;
-  }
-
-  return prisma.user.findUnique({ where: { username: identifier } });
+  const byUsername = await prisma.user.findUnique({ where: { username: identifier } });
+  if (byUsername?.role === "admin") return byUsername;
+  return null;
 }
 
-/** Login with username, email, or phone + password. */
+/** Login with a confirmed email and password. Phone numbers are rejected. */
 export async function login(
   identifier: string,
   password: string,
@@ -171,13 +189,17 @@ export async function login(
 ): Promise<{
   success: boolean; error?: string; session?: string; role?: string;
 }> {
-  const user = await findUserByLoginIdentifier(identifier);
+  const raw = identifier.trim();
+  if (!raw) return { success: false, error: "invalid_credentials" };
+  if (!isEmailLike(raw)) {
+    const admin = await prisma.user.findUnique({ where: { username: raw } });
+    if (admin?.role !== "admin") return { success: false, error: "email_only" };
+  }
+
+  const user = await findUserByLoginIdentifier(raw);
   if (!user) return { success: false, error: "invalid_credentials" };
   const valid = await verifyPassword(password, user.password);
   if (!valid) return { success: false, error: "invalid_credentials" };
-  if (isEmailLike(identifier) && user.email && identifier.trim().toLowerCase() === user.email.toLowerCase() && !user.emailVerified) {
-    return { success: false, error: "email_unverified" };
-  }
 
   const sessionToken = await createSession(user.id, user.username, user.name, user.role, user.isActive, maxAgeSeconds);
   return { success: true, session: sessionToken, role: user.role };

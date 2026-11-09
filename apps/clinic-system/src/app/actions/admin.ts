@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { hashPassword } from "@/lib/auth";
 import { generateId } from "@/lib/utils";
 import { normalizeAccountEmail } from "@/lib/realEmail";
+import { makePendingUsername } from "@/lib/usernamePolicy";
+import { deliverEmailCode } from "@/app/actions/contactVerification";
 
 export async function getAdminStats() {
   const [totalDoctors, activeDoctors, totalSpecialties, totalPatients, doctorsWithAccounts] =
@@ -51,6 +53,7 @@ export async function createDoctorWithAccount(data: {
   const checkedEmail = await normalizeAccountEmail(rawEmail);
   if (checkedEmail.status === "error") return { success: false, error: checkedEmail.error };
   const email = checkedEmail.status === "ok" ? checkedEmail.email : null;
+  if (!email) return { success: false, error: "email_required" };
 
   const existingUser = await prisma.user.findUnique({ where: { username } });
   if (existingUser) {
@@ -82,6 +85,7 @@ export async function createDoctorWithAccount(data: {
       userId: user.id,
     },
   });
+  await deliverEmailCode(user.id, "ar");
 
   revalidatePath("/[locale]/admin", "layout");
   return { success: true };
@@ -144,8 +148,11 @@ export async function createAccountForDoctor(doctorId: string, username: string,
   if (!doctor) return { success: false, error: "doctor_not_found" };
   if (doctor.userId) return { success: false, error: "already_has_account" };
 
+  if (!doctor.email) return { success: false, error: "email_required" };
   const existingUser = await prisma.user.findUnique({ where: { username } });
   if (existingUser) return { success: false, error: "username_taken" };
+  const emailTaken = await prisma.user.findUnique({ where: { email: doctor.email } });
+  if (emailTaken) return { success: false, error: "email_taken" };
 
   const hashedPwd = await hashPassword(password);
   const user = await prisma.user.create({
@@ -154,10 +161,14 @@ export async function createAccountForDoctor(doctorId: string, username: string,
       password: hashedPwd,
       name: doctor.nameAr || doctor.name,
       role: "doctor",
+      email: doctor.email,
+      emailVerified: false,
+      phone: doctor.phone,
     },
   });
 
   await prisma.doctor.update({ where: { id: doctorId }, data: { userId: user.id } });
+  await deliverEmailCode(user.id, "ar");
 
   revalidatePath("/[locale]/admin", "layout");
   return { success: true };
@@ -209,14 +220,26 @@ export async function deleteDoctorAndAccount(doctorId: string) {
   return { success: true };
 }
 
-export async function createSecretaryAccount(doctorId: string, username: string, password: string, name: string) {
-  const existing = await prisma.user.findUnique({ where: { username } });
-  if (existing) return { success: false, error: "username_taken" };
+export async function createSecretaryAccount(doctorId: string, emailRaw: string, password: string, name: string) {
+  const checked = await normalizeAccountEmail(emailRaw);
+  if (checked.status === "error") return { success: false, error: checked.error };
+  if (checked.status !== "ok") return { success: false, error: "email_required" };
+  const existing = await prisma.user.findUnique({ where: { email: checked.email } });
+  if (existing) return { success: false, error: "email_taken" };
 
   const hashedPwd = await hashPassword(password);
-  await prisma.user.create({
-    data: { username, password: hashedPwd, name, role: "secretary", linkedDoctorId: doctorId },
+  const created = await prisma.user.create({
+    data: {
+      username: makePendingUsername(),
+      password: hashedPwd,
+      name,
+      email: checked.email,
+      emailVerified: false,
+      role: "secretary",
+      linkedDoctorId: doctorId,
+    },
   });
+  await deliverEmailCode(created.id, "ar");
 
   revalidatePath("/[locale]/admin", "layout");
   return { success: true };

@@ -36,9 +36,9 @@ export default async function ForgotPasswordPage({
 
         ar
 
-          ? "أدخل رقم هاتفك أو بريدك الإلكتروني وسنرسل لك رمز التحقق"
+          ? "أدخل بريدك الإلكتروني وسنرسل رمز التحقق إليه"
 
-          : "Enter your phone or email and we'll send you a verification code"
+          : "Enter your email and we'll send the verification code there"
 
       }
 

@@ -77,7 +77,7 @@ export default function DoctorSettingsClient({
   specialties: Specialty[];
   locale: string;
   isSubscribed?: boolean;
-  secretaries?: Array<{ id: string; username: string; name: string; isActive: boolean }>;
+  secretaries?: Array<{ id: string; username: string; name: string; email?: string | null; isActive: boolean }>;
   contactStatus?: {
     email: string | null;
     phone: string | null;
@@ -121,7 +121,7 @@ export default function DoctorSettingsClient({
 
   const [secretaries, setSecretaries] = useState(initialSecretaries);
   const [secName, setSecName] = useState("");
-  const [secUsername, setSecUsername] = useState("");
+  const [secEmail, setSecEmail] = useState("");
   const [secPassword, setSecPassword] = useState("");
   const [secLoading, setSecLoading] = useState(false);
   const [secError, setSecError] = useState("");
@@ -427,7 +427,9 @@ export default function DoctorSettingsClient({
                             style={{ border: "1px solid var(--border)" }}>
                             <div>
                               <p className="text-xs font-semibold" style={{ color: "var(--text-1)" }}>{s.name}</p>
-                              <p className="text-[10px] font-mono" style={{ color: "var(--text-3)" }}>@{s.username}</p>
+                              <p className="text-[10px] font-mono" style={{ color: "var(--text-3)" }} dir="ltr">
+                                {s.username.startsWith("pending_") || /^\d{7,}$/.test(s.username) ? (s.email ?? s.username) : `@${s.username}`}
+                              </p>
                             </div>
                             <span className={`text-[10px] ${s.isActive ? "text-emerald-400" : "text-rose-400"}`}>
                               {s.isActive ? (ar ? "نشط" : "Active") : (ar ? "معطل" : "Disabled")}
@@ -439,23 +441,27 @@ export default function DoctorSettingsClient({
                     <div className="space-y-2.5 pt-2" style={{ borderTop: secretaries.length > 0 ? "1px solid var(--border)" : "none" }}>
                       <p className="text-xs" style={{ color: "var(--text-3)" }}>{ar ? "إضافة سكرتير جديد:" : "Add new secretary:"}</p>
                       {secError && <p className="text-xs text-rose-400">{secError}</p>}
-                      {secSuccess && <p className="text-xs text-emerald-400">{ar ? "تم الإضافة ✓" : "Added ✓"}</p>}
+                      {secSuccess && <p className="text-xs text-emerald-400">{ar ? "أُرسل الرمز إلى بريده. يدخل بالبريد ثم يختار اسم المستخدم." : "A code was sent to that email. They sign in, then choose a username."}</p>}
                       <input value={secName} onChange={(e) => setSecName(e.target.value)} placeholder={ar ? "الاسم الكامل" : "Full name"} className="form-input" />
-                      <input value={secUsername} onChange={(e) => setSecUsername(e.target.value)} placeholder={ar ? "اسم المستخدم" : "Username"} dir="ltr" className="form-input" />
+                      <input value={secEmail} onChange={(e) => setSecEmail(e.target.value)} type="email" placeholder={ar ? "البريد الإلكتروني" : "Email"} dir="ltr" className="form-input" />
                       <input value={secPassword} onChange={(e) => setSecPassword(e.target.value)} type="password" placeholder={ar ? "كلمة المرور" : "Password"} className="form-input" />
                       <button type="button" disabled={secLoading}
                         onClick={async () => {
-                          if (!secName || !secUsername || !secPassword) { setSecError(ar ? "جميع الحقول مطلوبة" : "All fields required"); return; }
+                          if (!secName || !secEmail || !secPassword) { setSecError(ar ? "جميع الحقول مطلوبة" : "All fields required"); return; }
                           setSecLoading(true); setSecError("");
-                          const r = await createSecretaryForDoctor(doctor.id, { name: secName, username: secUsername, password: secPassword });
+                          const r = await createSecretaryForDoctor(doctor.id, { name: secName, email: secEmail, password: secPassword });
                           setSecLoading(false);
                           if (r.success) {
-                            setSecSuccess(true); setSecName(""); setSecUsername(""); setSecPassword("");
+                            setSecSuccess(true); setSecName(""); setSecEmail(""); setSecPassword("");
                             const updated = await getSecretariesForDoctorPortal(doctor.id);
                             setSecretaries(updated);
                             setTimeout(() => setSecSuccess(false), 3000);
                           } else {
-                            setSecError(r.error === "username_taken" ? (ar ? "اسم المستخدم محجوز" : "Username taken") : (ar ? "حدث خطأ" : "Error"));
+                            setSecError(
+                              r.error === "email_taken" ? (ar ? "البريد مستخدم مسبقاً" : "Email already in use")
+                              : r.error === "email_required" || r.error === "invalid_email" || r.error === "unreal_email" ? (ar ? "أدخل بريداً حقيقياً" : "Enter a real email")
+                              : (ar ? "حدث خطأ" : "Error")
+                            );
                           }
                         }}
                         className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-medium transition disabled:opacity-50"

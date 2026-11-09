@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { getSession } from "@/lib/auth";
+import { getAppSession } from "@/lib/auth";
 
 export type DoctorRatingStats = {
   average: number;
@@ -78,7 +78,7 @@ export async function rateDoctor(
   doctorId: string,
   score: number
 ): Promise<{ success: boolean; error?: string; stats?: DoctorRatingStats }> {
-  const session = await getSession();
+  const session = await getAppSession();
   if (!session || session.role !== "patient") {
     return { success: false, error: "unauthorized" };
   }
