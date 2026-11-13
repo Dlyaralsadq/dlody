@@ -9,10 +9,8 @@ export function preloadLeaflet(): Promise<typeof import("leaflet")> {
     return Promise.reject(new Error("leaflet is client-only"));
   }
   if (!leafletPromise) {
-    leafletPromise = import("leaflet").then(async (L) => {
-      await import("leaflet/dist/leaflet.css");
-      return L;
-    });
+    // leaflet/dist/leaflet.css is imported statically in globals.css
+    leafletPromise = import("leaflet").then((L) => L);
   }
   return leafletPromise;
 }

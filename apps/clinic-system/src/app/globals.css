@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
 
 /* Extra scroll room at the bottom of any document-level scroll */
 html {
@@ -841,4 +842,82 @@ html[data-platform="desktop"] .force-desktop-flex { display: flex !important; }
 .sep {
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(255,255,255,.07) 30%, rgba(255,255,255,.07) 70%, transparent);
+}
+
+/* ── iOS / Mobile fixes ─────────────────────────────────
+   1. Prevent iOS Safari from auto-zooming when focusing text inputs
+      (Safari zooms in whenever font-size < 16px).
+   2. Safe-area padding so content doesn't hide under the notch / home bar.
+   3. Minimum 44px touch targets for interactive elements.
+   4. Smooth momentum scrolling on overflow containers.
+   ────────────────────────────────────────────────────── */
+@media (hover: none) and (pointer: coarse) {
+  /* Prevent auto-zoom on input focus */
+  input,
+  select,
+  textarea,
+  .form-input {
+    font-size: 16px !important;
+    /* Keep the designed line-height so taller font doesn't blow out the layout */
+    line-height: 1.4;
+  }
+
+  /* Minimum 44×44 px touch targets (Apple HIG recommendation) */
+  button,
+  [role="button"],
+  a,
+  .btn {
+    min-height: 44px;
+  }
+
+  /* Allow overflow to be scrolled with momentum (prevents sticky scroll on iOS) */
+  .overflow-y-auto,
+  .overflow-x-auto,
+  [class*="overflow-y"],
+  [class*="overflow-x"] {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Safe-area insets for iPhone notch / Dynamic Island / home indicator */
+.safe-top    { padding-top:    env(safe-area-inset-top,    0px); }
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+.safe-left   { padding-left:   env(safe-area-inset-left,   0px); }
+.safe-right  { padding-right:  env(safe-area-inset-right,  0px); }
+
+/* Full-height helper: uses svh (small-viewport-height) with dvh fallback.
+   svh = visible area after browser chrome, stable — no jumping on scroll.
+   dvh = same but animates on scroll (iOS 15.4+).
+   vh  = legacy fallback for very old WebKit. */
+.h-screen-safe {
+  height: 100vh;             /* legacy fallback */
+  height: 100svh;            /* iOS 15.4+: stable visible-viewport height */
+}
+.min-h-screen-safe {
+  min-height: 100vh;
+  min-height: 100svh;
+}
+
+/* Patient map page wrapper uses h-[100dvh] via Tailwind; override on iOS
+   to use svh which doesn't cause the rubber-band / resize flash. */
+.map-page-root {
+  height: 100vh;
+  height: 100svh;
+}
+
+/* Leaflet map tile fix for iOS WebKit:
+   Force GPU compositing to prevent tile-painting glitch. */
+.leaflet-tile-pane {
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  will-change: transform;
+}
+.leaflet-tile {
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+/* Ensure the Leaflet container gets a defined background even before tiles load. */
+.leaflet-container {
+  -webkit-tap-highlight-color: transparent;
 }

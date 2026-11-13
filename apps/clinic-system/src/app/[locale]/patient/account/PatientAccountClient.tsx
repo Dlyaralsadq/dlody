@@ -346,7 +346,7 @@ export default function PatientAccountClient({
           style={{
             width: "52px",
             borderLeft: "1px solid var(--border)",
-            height: "calc(100dvh - 73px)", // 73 = hero height approx
+            height: "calc(100svh - 73px)", // 73 = hero height approx (svh = stable visible-viewport on iOS)
             overflowY: "auto",
           }}
         >

@@ -53,7 +53,7 @@ export default async function PatientDoctorPage({
   const days = doctor.workingDays ? WORKING_DAYS_LABELS[doctor.workingDays] : null;
 
   return (
-    <div className="flex flex-col h-[100dvh] overflow-hidden" style={{ background: "var(--bg-root)" }} dir={ar ? "rtl" : "ltr"}>
+    <div className="map-page-root flex flex-col overflow-hidden" style={{ background: "var(--bg-root)" }} dir={ar ? "rtl" : "ltr"}>
       <nav className="shrink-0 z-20 flex items-center gap-3 px-4 py-3 backdrop-blur-md" style={{ borderBottom: "1px solid var(--border)", background: "color-mix(in srgb, var(--bg-root) 90%, transparent)" }}>
         <Link
           href={`/${locale}/patient/explore`}

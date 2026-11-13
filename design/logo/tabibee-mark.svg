@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800" role="img" aria-label="Tabibee">
+  <rect width="800" height="800" fill="#FFFFFF"/>
+  <mask id="eight" maskUnits="userSpaceOnUse">
+    <rect width="800" height="800" fill="#FFFFFF"/>
+    <ellipse cx="400" cy="366" rx="34" ry="42" fill="#000000"/>
+    <ellipse cx="400" cy="434" rx="34" ry="42" fill="#000000"/>
+  </mask>
+  <g fill="none" stroke="#12141C" stroke-width="132" stroke-linecap="round" mask="url(#eight)">
+    <path d="M168 400 H632"/>
+    <path d="M400 168 V632"/>
+  </g>
+</svg>

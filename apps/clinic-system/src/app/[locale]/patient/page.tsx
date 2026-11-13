@@ -92,7 +92,7 @@ export default async function PatientPage({
   }
 
   return (
-    <div className="flex flex-col h-[100dvh] overflow-hidden" style={{ background: "var(--bg-root)" }} dir={ar ? "rtl" : "ltr"}>
+    <div className="map-page-root flex flex-col overflow-hidden" style={{ background: "var(--bg-root)" }} dir={ar ? "rtl" : "ltr"}>
 
       {/* ── Top nav ── */}
       <nav className="shrink-0 flex items-center justify-between px-4 py-3 backdrop-blur-md z-10" style={{ borderBottom: "1px solid var(--border)", background: "color-mix(in srgb, var(--bg-root) 90%, transparent)" }}>

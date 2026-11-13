@@ -42,7 +42,43 @@ const TILE_OPTS = {
   updateWhenZooming: false,
   updateInterval: 40,
   keepBuffer: 4,
+  crossOrigin: "anonymous" as const,
 };
+
+/** OSM tile URL used as fallback when Google tiles fail on iOS/restricted networks. */
+const OSM_TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+
+function attachTileFallback(
+  layer: LeafletTileLayer,
+  L: LeafletModule,
+  map: LeafletMap,
+  layersRef: LeafletTileLayer[]
+): void {
+  let failCount = 0;
+  let fallbackApplied = false;
+
+  layer.on("tileerror", () => {
+    if (fallbackApplied) return;
+    failCount++;
+    if (failCount >= 4) {
+      fallbackApplied = true;
+      const osmLayer = L.tileLayer(OSM_TILE_URL, {
+        subdomains: "abc",
+        maxZoom: 19,
+        maxNativeZoom: 19,
+        minZoom: 3,
+        tileSize: 256,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      });
+      osmLayer.addTo(map);
+      layersRef.forEach((old) => {
+        if (old !== osmLayer && map.hasLayer(old)) map.removeLayer(old);
+      });
+      // Replace the layers array contents in-place
+      layersRef.splice(0, layersRef.length, osmLayer);
+    }
+  });
+}
 
 function tileLang(locale: string): "ar" | "en" {
   return isArabicLocale(locale) ? "ar" : "en";
@@ -95,7 +131,9 @@ export function setMapDisplayStyle(
     if (old !== layer && map.hasLayer(old)) map.removeLayer(old);
   });
   markMapStyle(map, style);
-  return [layer];
+  const layersArr = [layer];
+  attachTileFallback(layer, L, map, layersArr);
+  return layersArr;
 }
 
 export function applyHighQualityTiles(
