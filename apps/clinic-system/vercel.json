@@ -1,0 +1,6 @@
+{
+  "framework": "nextjs",
+  "installCommand": "cd ../.. && npm install",
+  "buildCommand": "cd ../.. && node scripts/sync-prisma-provider.mjs && npm run db:generate && npm run build -w @iraq-clinic/clinic-system",
+  "outputDirectory": ".next"
+}

@@ -1,43 +1,25 @@
-# نشر ClinicPro على الإنترنت (رابط دائم)
+# نشر طبيبي على tabibee.com
 
-## الطريقة الأسرع: Vercel + Neon PostgreSQL (مجاني)
+النطاق لا يشغّل الموقع. يلزم مضيف (Vercel) وقاعدة Postgres (Neon)، ثم ربط DNS.
 
-### الخطوة 1: قاعدة بيانات مجانية من Neon
-1. اذهب إلى [neon.tech](https://neon.tech) وأنشئ حساباً مجانياً
-2. أنشئ قاعدة بيانات جديدة باسم `clinicpro`
-3. انسخ **Connection String** يبدأ بـ `postgresql://...`
+في Vercel اجعل Root Directory = `apps/clinic-system`.
 
-### الخطوة 2: نشر على Vercel
-1. اذهب إلى [vercel.com](https://vercel.com) وسجّل بحسابك على GitHub
-2. اضغط "New Project" وأختر مستودع `-.`
-3. في **Environment Variables** أضف:
-   - `DATABASE_URL` = الرابط من Neon
-   - `NEXTAUTH_SECRET` = `clinic-pro-secret-2024`
-4. اضغط Deploy
+متغيرات البيئة:
 
-### الخطوة 3: إعداد قاعدة البيانات
-بعد النشر، في Vercel Dashboard → Functions → Run:
-```
-npx prisma migrate deploy
-npx tsx prisma/seed.ts
+- `DATABASE_URL` رابط Neon الذي يبدأ بـ `postgresql://`
+- `SESSION_SECRET` 32 حرفاً على الأقل
+- `NEXT_PUBLIC_APP_URL` = `https://tabibee.com`
+- `RESEND_API_KEY` و `RESET_EMAIL_FROM` = `Tabibee <noreply@tabibee.com>` عند تفعيل البريد
+
+بعد إنشاء Neon، من جهازك مرة واحدة:
+
+```powershell
+$env:DATABASE_URL="postgresql://..."
+npm run db:push
+npm run db:seed
 ```
 
-### النتيجة
-رابط دائم مثل: `https://clinic-pro.vercel.app`
+ثم في Vercel أضف النطاق `tabibee.com` وانسخ سجلات DNS التي يعرضها إلى لوحة شراء النطاق.
 
----
-
-## طريقة بديلة: Railway (يدعم SQLite)
-
-1. اذهب إلى [railway.app](https://railway.app)
-2. "Deploy from GitHub" → اختر مستودع `-.`
-3. أضف متغير: `PORT=3000`
-4. Railway يعطيك رابطاً دائماً مثل: `clinicpro.up.railway.app`
-
----
-
-## تشغيل محلي دائم
-للتشغيل التلقائي عند بدء VM:
-```bash
-bash /workspace/start.sh
-```
+على قاعدة Postgres لا يضيف `db:seed` أطباء أو مرضى تجريبيين. حساب المدير الحالي لا يُستبدل.
+ملفات المرضى والمنشورات والقصص والصور تُحفظ داخل قاعدة البيانات وتبقى بعد نشر نسخة جديدة.

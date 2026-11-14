@@ -1,0 +1,43 @@
+{
+  "name": "طبيبي — tabibee.com",
+  "short_name": "طبيبي",
+  "description": "ابحث عن طبيب، احجز موعدك، تابع مواعيدك",
+  "start_url": "/ar/patient",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
+  "background_color": "#060912",
+  "theme_color": "#6366f1",
+  "orientation": "any",
+  "lang": "ar",
+  "dir": "rtl",
+  "categories": ["medical", "health", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "بحث عن طبيب",
+      "short_name": "بحث",
+      "url": "/ar/patient",
+      "description": "ابحث عن طبيب حسب التخصص"
+    },
+    {
+      "name": "مواعيدي",
+      "short_name": "مواعيد",
+      "url": "/ar/patient/account",
+      "description": "عرض مواعيدك"
+    }
+  ]
+}

@@ -14,8 +14,18 @@
 /coverage
 
 # next.js
-/.next/
-/out/
+.next/
+out/
+apps/*/.next/
+
+# private patient files (never public)
+apps/clinic-system/data/patient-files/
+
+# database
+packages/database/prisma/*.db
+packages/database/prisma/*.db-journal
+*.db
+*.db-journal
 
 # production
 /build
@@ -23,6 +33,8 @@
 # misc
 .DS_Store
 *.pem
+/tools/cloudflared
+/tools/cloudflared.exe
 
 # debug
 npm-debug.log*
@@ -36,10 +48,9 @@ yarn-error.log*
 # vercel
 .vercel
 
-# typescript
 *.tsbuildinfo
 next-env.d.ts
-*.db
-*.db-journal
+apps/*/next-env.d.ts
 .env.local
 README.md.bak
+.neon
