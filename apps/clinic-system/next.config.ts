@@ -87,9 +87,19 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
+  // Compress HTTP responses (gzip/br). Reduces payload by ~70% for JS/JSON/HTML.
+  compress: true,
   experimental: {
     serverActions: {
       bodySizeLimit: "26mb",
+    },
+    // Client-side router cache: keep rendered pages in memory for quick back/forward
+    // navigation without a network round-trip.
+    // dynamic: 30 s   — authenticated pages (dashboard, map, profile)
+    // static:  300 s  — login/register UI (no data changes)
+    staleTimes: {
+      dynamic: 30,
+      static: 300,
     },
   },
   output: process.env.NEXT_OUTPUT === "standalone" ? "standalone" : undefined,

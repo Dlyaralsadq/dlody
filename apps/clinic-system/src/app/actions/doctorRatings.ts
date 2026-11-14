@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, unstable_cache } from "next/cache";
 import { getAppSession } from "@/lib/auth";
 
 export type DoctorRatingStats = {
@@ -53,10 +53,17 @@ export async function getDoctorRatingStatsMap(
   const model = ratings();
   if (!model) return new Map();
 
-  const rows = await model.findMany({
-    where: { doctorId: { in: doctorIds } },
-    select: { doctorId: true, score: true },
-  });
+  // Cache by sorted list of ids so order doesn't create duplicate entries.
+  const key = [...doctorIds].sort().join(",");
+  const rows = await unstable_cache(
+    () =>
+      model.findMany({
+        where: { doctorId: { in: doctorIds } },
+        select: { doctorId: true, score: true },
+      }),
+    ["ratings-map", key],
+    { revalidate: 120, tags: ["ratings"] }
+  )();
 
   const buckets = new Map<string, { sum: number; count: number }>();
   for (const row of rows) {

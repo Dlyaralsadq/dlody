@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, unstable_cache } from "next/cache";
 import { getAppSession } from "@/lib/auth";
 import { getDoctorByUserId } from "@/app/actions/doctorPortal";
 import { saveStoryMediaFile } from "@/lib/postMediaUpload";
@@ -83,12 +83,22 @@ export async function getPatientStoryStrip(patientId: string): Promise<StoryFeed
 export async function getActiveStoryDoctorIds(doctorIds: string[]): Promise<Set<string>> {
   if (!storyModelAvailable() || doctorIds.length === 0) return new Set();
   try {
-    const groups = await prisma.doctorStory.groupBy({
-      by: ["doctorId"],
-      where: { ...activeStoryWhere(), doctorId: { in: doctorIds } },
-      _count: { id: true },
-    });
-    return new Set(groups.map((g) => g.doctorId));
+    // Cache per sorted list of doctor ids, 60 s TTL.
+    const key = [...doctorIds].sort().join(",");
+    const rows = await unstable_cache(
+      async () => {
+        // Use findMany + select to avoid Prisma groupBy type issues.
+        const stories = await prisma.doctorStory.findMany({
+          where: { doctorId: { in: doctorIds }, expiresAt: { gt: new Date() } },
+          select: { doctorId: true },
+          distinct: ["doctorId"],
+        });
+        return stories.map((s) => s.doctorId);
+      },
+      ["active-stories", key],
+      { revalidate: 60, tags: ["stories"] }
+    )();
+    return new Set(rows);
   } catch (err) {
     console.error("[getActiveStoryDoctorIds]", err);
     return new Set();

@@ -131,6 +131,9 @@ model Doctor {
   ratings           DoctorRating[]
   stories           DoctorStory[]
   pageViews         DoctorPageView[]
+
+  @@index([isActive])
+  @@index([isActive, specialtyId])
 }
 
 model Post {
@@ -146,6 +149,8 @@ model Post {
   likes     PostLike[]
   comments  PostComment[]
   savedBy   SavedPost[]
+
+  @@index([doctorId, createdAt(sort: Desc)])
 }
 
 model DoctorFollow {
@@ -197,6 +202,7 @@ model DoctorRating {
   doctorId  String
   doctor    Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
   patientId String
+  // @@index([doctorId]) added via raw SQL migration (gin_trgm not in Prisma SDL)
   patient   User     @relation("PatientRatings", fields: [patientId], references: [id], onDelete: Cascade)
   score     Int
   createdAt DateTime @default(now())
@@ -214,6 +220,9 @@ model DoctorStory {
   caption   String?
   createdAt DateTime @default(now())
   expiresAt DateTime
+
+  @@index([doctorId, expiresAt])
+  @@index([expiresAt])
 }
 
 model Patient {
@@ -248,6 +257,9 @@ model Patient {
   documents         PatientDocument[]
   clinicalNotes     ClinicalNote[]
   diagnoses         PatientDiagnosis[]
+
+  @@index([doctorId])
+  @@index([doctorId, isActive])
 }
 
 model PatientDocument {
@@ -329,6 +341,10 @@ model Appointment {
   deleteNote        String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+
+  @@index([doctorId, date])
+  @@index([doctorId, status])
+  @@index([patientId])
 }
 
 model Message {
@@ -338,6 +354,9 @@ model Message {
   content     String
   isRead      Boolean  @default(false)
   createdAt   DateTime @default(now())
+
+  @@index([fromUserId])
+  @@index([toUserId, isRead])
 }
 
 model DoctorSubscription {
@@ -347,6 +366,8 @@ model DoctorSubscription {
   notified    Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([expiresAt])
 }
 
 /// File bytes for patient documents, posts, stories, and avatars.

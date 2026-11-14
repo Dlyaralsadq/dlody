@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { generateId } from "@/lib/utils";
 import { hashPassword, getAppSession } from "@/lib/auth";
 import { normalizeAccountEmail } from "@/lib/realEmail";
@@ -285,6 +285,9 @@ export async function updateDoctorSettings(
   revalidatePath("/[locale]/doctor/settings", "page");
   revalidatePath("/[locale]/patient", "page");
   revalidatePath("/[locale]/patient/doctor/[id]", "page");
+  // Invalidate public data caches so the map and explore show updated info.
+  revalidateTag("doctors-list", "default");
+  revalidateTag("map-pins", "default");
 
   return { success: true };
 }

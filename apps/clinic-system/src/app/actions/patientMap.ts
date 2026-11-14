@@ -4,6 +4,7 @@ import { getListedDoctors } from "@/lib/publicDoctors";
 import { getSpecialtyIcon, inferGovFromAddress } from "@/lib/iraq";
 import { getDoctorRatingStatsMap } from "@/app/actions/doctorRatings";
 import { getActiveStoryDoctorIds } from "@/app/actions/doctorStories";
+import { unstable_cache } from "next/cache";
 
 export type MapDoctorPin = {
   id: string;
@@ -33,17 +34,18 @@ export type MapDoctorPin = {
   hasActiveStory: boolean;
 };
 
-export async function fetchMapDoctorPins(filters: {
-  specialty?: string;
-  gov?: string;
-  district?: string;
-  q?: string;
+/** Builds map pins from cached doctor list + cached ratings + cached story flags. */
+async function buildMapPins(filters: {
+  specialty: string;
+  gov: string;
+  district: string;
+  q: string;
 }): Promise<MapDoctorPin[]> {
   const rawDoctors = await getListedDoctors({
-    specialtyId: filters.specialty,
-    governorate: filters.gov,
-    district: filters.district,
-    query: filters.q,
+    specialtyId: filters.specialty || undefined,
+    governorate: filters.gov || undefined,
+    district: filters.district || undefined,
+    query: filters.q || undefined,
   });
 
   const [ratingMap, activeStoryIds] = await Promise.all([
@@ -82,4 +84,23 @@ export async function fetchMapDoctorPins(filters: {
       hasActiveStory: activeStoryIds.has(doc.id),
     };
   });
+}
+
+/** Cached version of buildMapPins — 60 s TTL, keyed by filter combination. */
+export async function fetchMapDoctorPins(filters: {
+  specialty?: string;
+  gov?: string;
+  district?: string;
+  q?: string;
+}): Promise<MapDoctorPin[]> {
+  const sf = filters.specialty ?? "";
+  const gf = filters.gov ?? "";
+  const df = filters.district ?? "";
+  const qf = filters.q ?? "";
+
+  return unstable_cache(
+    () => buildMapPins({ specialty: sf, gov: gf, district: df, q: qf }),
+    ["map-pins", sf, gf, df, qf],
+    { revalidate: 60, tags: ["doctors-list", "map-pins"] }
+  )();
 }

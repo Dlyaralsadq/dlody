@@ -35,6 +35,19 @@ function createPrismaClient() {
     const pool = new Pool({
       connectionString: dbUrl,
       ssl: { rejectUnauthorized: false },
+      // ── Pool tuning for production load ──────────────────────────────────
+      // Neon serverless: connections are lightweight; keep more open to reduce
+      // per-request latency from cold-connection overhead.
+      max: parseInt(process.env.PG_POOL_MAX ?? "20", 10),
+      // Release idle connections after 30 s to avoid hitting Neon's concurrent
+      // connection limit on the Free / Launch plan.
+      idleTimeoutMillis: 30_000,
+      // Fail fast if the pool is saturated — better than queuing indefinitely.
+      connectionTimeoutMillis: 5_000,
+      // Kill any server-side query that runs longer than 15 s.
+      statement_timeout: 15_000,
+      // Release transactions that have been idle for more than 30 s.
+      idle_in_transaction_session_timeout: 30_000,
     });
     const adapter = new PrismaPg(pool);
     return new PrismaClient({ adapter });

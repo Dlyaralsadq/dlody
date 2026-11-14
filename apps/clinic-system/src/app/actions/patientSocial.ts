@@ -123,6 +123,7 @@ export async function getDoctorProfilePosts(doctorId: string, patientId: string)
     where: { doctorId },
     orderBy: { createdAt: "desc" },
     include: postInclude(patientId),
+    take: 30, // cap at 30 most-recent posts per profile
   });
   const [following, activeStoryIds] = await Promise.all([
     getFollowingSet(patientId, [doctorId]),
@@ -367,8 +368,13 @@ export async function getBrowseDoctors(patientId: string): Promise<BrowseDoctor[
   const [doctors, follows, postCounts] = await Promise.all([
     prisma.doctor.findMany({
       where: { isActive: true },
-      include: { specialty: true },
+      select: {
+        id: true, name: true, nameAr: true, specialtyId: true, logoUrl: true,
+        clinicAddress: true, experienceYears: true,
+        specialty: { select: { id: true, name: true, nameAr: true } },
+      },
       orderBy: { nameAr: "asc" },
+      take: 300,
     }),
     prisma.doctorFollow.findMany({
       where: { patientId },
