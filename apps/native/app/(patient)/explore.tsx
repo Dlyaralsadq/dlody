@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { View, Text, StyleSheet, FlatList, Pressable, Image, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
@@ -9,6 +10,7 @@ import { Avatar } from "@/components/ui";
 
 export default function ExploreScreen() {
   const user = useAuthStore((s) => s.user);
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
 
   const { data, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ["explore-feed", user?.id],
@@ -54,7 +56,7 @@ export default function ExploreScreen() {
           <Pressable
             style={styles.card}
             onPress={() =>
-              router.push({ pathname: "/(patient)/doctor/[id]", params: { id: item.doctorId } })
+              router.push({ pathname: "/(patient)/doctor/[id]", params: { id: item.doctor?.id } })
             }
           >
             {/* Doctor info */}
@@ -75,8 +77,13 @@ export default function ExploreScreen() {
             <Text style={styles.content} numberOfLines={4}>{item.content}</Text>
 
             {/* Image */}
-            {item.imageUrl && (
-              <Image source={{ uri: item.imageUrl }} style={styles.postImage} resizeMode="cover" />
+            {item.imageUrl && !failedImages.has(item.id) && (
+              <Image
+                source={{ uri: item.imageUrl }}
+                style={styles.postImage}
+                resizeMode="cover"
+                onError={() => setFailedImages((prev) => new Set([...prev, item.id]))}
+              />
             )}
 
             {/* Actions */}

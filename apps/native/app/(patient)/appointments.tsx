@@ -1,8 +1,9 @@
-import { View, Text, StyleSheet, FlatList, RefreshControl, Pressable } from "react-native";
+import { useState } from "react";
+import { View, Text, StyleSheet, FlatList, RefreshControl, Pressable, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Typography, Spacing } from "@/theme";
-import { getMyAppointments } from "@/api/patient";
+import { getMyAppointments, cancelAppointment } from "@/api/patient";
 import { useAuthStore } from "@/stores/auth";
 import { Badge } from "@/components/ui";
 
@@ -23,6 +24,7 @@ const STATUS_VARIANTS: Record<string, "success" | "warning" | "danger" | "info" 
 export default function AppointmentsScreen() {
   const user = useAuthStore((s) => s.user);
   const [tab, setTab] = useState<"upcoming" | "past">("upcoming");
+  const qc = useQueryClient();
 
   const { data, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ["my-appointments", user?.id],
@@ -30,6 +32,22 @@ export default function AppointmentsScreen() {
     enabled:  !!user,
     staleTime: 30_000,
   });
+
+  const { mutate: doCancel } = useMutation({
+    mutationFn: (id: string) => cancelAppointment(id),
+    onSuccess:  () => {
+      qc.invalidateQueries({ queryKey: ["my-appointments"] });
+      Alert.alert("تم الإلغاء", "تم إلغاء الموعد بنجاح");
+    },
+    onError: () => Alert.alert("خطأ", "فشل إلغاء الموعد، حاول مرة أخرى"),
+  });
+
+  function handleCancel(id: string) {
+    Alert.alert("إلغاء الموعد", "هل تريد إلغاء هذا الموعد؟", [
+      { text: "لا", style: "cancel" },
+      { text: "نعم، ألغِ الموعد", style: "destructive", onPress: () => doCancel(id) },
+    ]);
+  }
 
   const list = tab === "upcoming" ? (data?.upcoming ?? []) : (data?.past ?? []);
 
@@ -91,15 +109,21 @@ export default function AppointmentsScreen() {
             {item.doctor?.clinicAddress && (
               <Text style={styles.addr}>📍 {item.doctor.clinicAddress}</Text>
             )}
+            {/* Cancel button — only for upcoming scheduled */}
+            {tab === "upcoming" && item.status === "scheduled" && (
+              <Pressable
+                style={styles.cancelBtn}
+                onPress={() => handleCancel(item.id)}
+              >
+                <Text style={styles.cancelBtnText}>إلغاء الموعد</Text>
+              </Pressable>
+            )}
           </View>
         )}
       />
     </SafeAreaView>
   );
 }
-
-// Need to import useState
-import { useState } from "react";
 
 const styles = StyleSheet.create({
   root:        { flex: 1, backgroundColor: Colors.bgRoot },
@@ -123,8 +147,17 @@ const styles = StyleSheet.create({
   infoText:{ color: Colors.text2, fontSize: Typography.sizes.sm },
   addr:    { fontSize: Typography.sizes.xs, color: Colors.text3, textAlign: "right", marginTop: 4 },
 
+  cancelBtn: {
+    marginTop: Spacing.sm,
+    borderWidth: 1,
+    borderColor: "rgba(239,68,68,0.5)",
+    borderRadius: 8,
+    paddingVertical: 8,
+    alignItems: "center",
+  },
+  cancelBtnText: { color: "#ef4444", fontWeight: "700", fontSize: Typography.sizes.sm },
+
   empty:      { flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 80 },
   emptyEmoji: { fontSize: 48 },
   emptyText:  { color: Colors.text3, marginTop: Spacing.md, fontSize: Typography.sizes.base },
 });
-

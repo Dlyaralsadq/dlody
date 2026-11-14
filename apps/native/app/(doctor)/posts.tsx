@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   View, Text, StyleSheet, FlatList, Pressable,
-  TextInput, Alert, RefreshControl, Modal, KeyboardAvoidingView, Platform,
+  TextInput, Alert, RefreshControl, Modal, KeyboardAvoidingView, Platform, Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -69,6 +69,13 @@ export default function DoctorPostsScreen() {
               </Pressable>
             </View>
             <Text style={styles.content} numberOfLines={4}>{item.content}</Text>
+            {item.imageUrl && (
+              <Image
+                source={{ uri: item.imageUrl }}
+                style={styles.postImage}
+                resizeMode="cover"
+              />
+            )}
             <View style={styles.statsRow}>
               <Text style={styles.stat}>❤️ {item.likeCount}</Text>
               <Text style={styles.stat}>💬 {item.commentCount}</Text>
@@ -94,17 +101,16 @@ function CreatePostModal({
 }: {
   visible: boolean; onClose: () => void; onSuccess: () => void;
 }) {
-  const [content, setContent] = useState("");
-  const [loading, setLoading] = useState(false);
-  const qc = useQueryClient();
+  const [content,  setContent]  = useState("");
+  const [imageUrl, setImageUrl] = useState("");
 
-  const { mutate } = useMutation({
-    mutationFn: () => createPost({ content }),
+  const { mutate, isPending } = useMutation({
+    mutationFn: () => createPost({ content, imageUrl: imageUrl.trim() || undefined }),
     onSuccess:  onSuccess,
     onError:    () => Alert.alert("خطأ", "فشل نشر المنشور"),
   });
 
-  async function handle() {
+  function handle() {
     if (!content.trim()) {
       Alert.alert("خطأ", "يرجى كتابة المحتوى");
       return;
@@ -112,12 +118,18 @@ function CreatePostModal({
     mutate();
   }
 
+  function handleClose() {
+    setContent("");
+    setImageUrl("");
+    onClose();
+  }
+
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
         <SafeAreaView style={styles.modal} edges={["top"]}>
           <View style={styles.modalHeader}>
-            <Pressable onPress={onClose}>
+            <Pressable onPress={handleClose}>
               <Text style={styles.modalClose}>✕</Text>
             </Pressable>
             <Text style={styles.modalTitle}>منشور جديد</Text>
@@ -135,9 +147,25 @@ function CreatePostModal({
             textAlign="right"
           />
 
+          {/* Image URL input */}
+          <View style={styles.imageUrlRow}>
+            <TextInput
+              style={styles.imageUrlInput}
+              placeholder="رابط الصورة (اختياري)..."
+              placeholderTextColor={Colors.text3}
+              value={imageUrl}
+              onChangeText={setImageUrl}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+              textAlign="right"
+            />
+            <Text style={styles.imageUrlIcon}>🖼️</Text>
+          </View>
+
           <View style={styles.modalFooter}>
             <Text style={styles.charCount}>{content.length} حرف</Text>
-            <Button label="نشر" onPress={handle} style={{ flex: 1 }} />
+            <Button label={isPending ? "جارٍ النشر..." : "نشر"} onPress={handle} style={{ flex: 1 }} />
           </View>
         </SafeAreaView>
       </KeyboardAvoidingView>
@@ -171,6 +199,8 @@ const styles = StyleSheet.create({
   statsRow:  { flexDirection: "row", gap: Spacing.md, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: Colors.border },
   stat:      { color: Colors.text3, fontSize: Typography.sizes.sm },
 
+  postImage: { width: "100%", height: 180, borderRadius: 10, marginTop: Spacing.sm },
+
   modal:       { flex: 1, backgroundColor: Colors.bgRoot },
   modalHeader: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
@@ -183,6 +213,18 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.base, color: Colors.text1, lineHeight: 26,
     textAlignVertical: "top",
   },
+  imageUrlRow: {
+    flexDirection: "row", alignItems: "center",
+    marginHorizontal: Spacing.md, marginBottom: Spacing.sm,
+    backgroundColor: Colors.bgCard,
+    borderRadius: 10, borderWidth: 1, borderColor: Colors.border,
+    paddingHorizontal: Spacing.sm,
+  },
+  imageUrlInput: {
+    flex: 1, height: 44,
+    fontSize: Typography.sizes.sm, color: Colors.text1,
+  },
+  imageUrlIcon: { fontSize: 18, marginLeft: 4 },
   modalFooter: {
     flexDirection: "row", alignItems: "center", gap: Spacing.md,
     padding: Spacing.md, borderTopWidth: 1, borderTopColor: Colors.border,

@@ -1,59 +1,84 @@
 import { Tabs } from "expo-router";
-import { Text, StyleSheet } from "react-native";
+import { StyleSheet } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { Colors, Typography } from "@/theme";
 
-function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
-  return (
-    <Text style={[styles.tabEmoji, focused && styles.tabEmojiFocused]}>
-      {emoji}
-    </Text>
-  );
-}
+type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
 
 export default function DoctorLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerShown:          false,
-        tabBarStyle:          styles.tabBar,
-        tabBarActiveTintColor:  Colors.indigo,
+        headerShown:             false,
+        tabBarStyle:             styles.tabBar,
+        tabBarActiveTintColor:   Colors.indigo,
         tabBarInactiveTintColor: Colors.text3,
-        tabBarLabelStyle:     styles.tabLabel,
+        tabBarLabelStyle:        styles.tabLabel,
       }}
     >
       <Tabs.Screen
         name="dashboard"
         options={{
-          title: "الرئيسية",
-          tabBarIcon: ({ focused }) => <TabIcon emoji="🏠" focused={focused} />,
+          title: "لوحتي",
+          tabBarIcon: ({ focused, color }) => (
+            <Ionicons
+              name={(focused ? "grid" : "grid-outline") as IoniconName}
+              size={24}
+              color={color}
+            />
+          ),
         }}
       />
       <Tabs.Screen
         name="appointments"
         options={{
           title: "المواعيد",
-          tabBarIcon: ({ focused }) => <TabIcon emoji="📅" focused={focused} />,
+          tabBarIcon: ({ focused, color }) => (
+            <Ionicons
+              name={(focused ? "calendar" : "calendar-outline") as IoniconName}
+              size={24}
+              color={color}
+            />
+          ),
         }}
       />
       <Tabs.Screen
         name="patients"
         options={{
-          title: "المرضى",
-          tabBarIcon: ({ focused }) => <TabIcon emoji="👥" focused={focused} />,
+          title: "مرضاي",
+          tabBarIcon: ({ focused, color }) => (
+            <Ionicons
+              name={(focused ? "people" : "people-outline") as IoniconName}
+              size={24}
+              color={color}
+            />
+          ),
         }}
       />
       <Tabs.Screen
         name="posts"
         options={{
-          title: "المنشورات",
-          tabBarIcon: ({ focused }) => <TabIcon emoji="📝" focused={focused} />,
+          title: "منشوراتي",
+          tabBarIcon: ({ focused, color }) => (
+            <Ionicons
+              name={(focused ? "newspaper" : "newspaper-outline") as IoniconName}
+              size={24}
+              color={color}
+            />
+          ),
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
-          title: "الإعدادات",
-          tabBarIcon: ({ focused }) => <TabIcon emoji="⚙️" focused={focused} />,
+          title: "إعداداتي",
+          tabBarIcon: ({ focused, color }) => (
+            <Ionicons
+              name={(focused ? "settings" : "settings-outline") as IoniconName}
+              size={24}
+              color={color}
+            />
+          ),
         }}
       />
     </Tabs>
@@ -69,10 +94,7 @@ const styles = StyleSheet.create({
     paddingBottom:    8,
   },
   tabLabel: {
-    fontSize:         Typography.sizes.xs,
-    fontWeight:       "600",
-    writingDirection: "rtl",
+    fontSize:  Typography.sizes.xs,
+    fontWeight: "600",
   },
-  tabEmoji:        { fontSize: 22 },
-  tabEmojiFocused: { transform: [{ scale: 1.1 }] },
 });

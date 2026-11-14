@@ -11,13 +11,14 @@ export const Colors = {
   bgHover:       "rgba(255,255,255,0.05)",
 
   // Borders
-  border:        "rgba(99,102,241,0.18)",
+  border:        "rgba(255,255,255,0.08)",
+  borderIndigo:  "rgba(99,102,241,0.18)",
   borderHover:   "rgba(99,102,241,0.35)",
 
-  // Text
-  text1:         "#f0f4ff",
-  text2:         "#a0abc8",
-  text3:         "#5a6584",
+  // Text — exact match to web design system (#f1f5f9, #94a3b8, #475569)
+  text1:         "#f1f5f9",
+  text2:         "#94a3b8",
+  text3:         "#475569",
 
   // Brand
   indigo:        "#6366f1",
