@@ -31,7 +31,10 @@ export async function GET(req: NextRequest) {
   return ok({
     doctor,
     posts,
-    rating:   ratingsMap[id] ?? { avg: 0, count: 0 },
+    rating: (() => {
+      const r = ratingsMap.get(id);
+      return r ? { avg: r.average, count: r.count } : { avg: 0, count: 0 };
+    })(),
     slots: slotsResult,
   });
 }

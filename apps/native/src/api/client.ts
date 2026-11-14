@@ -6,6 +6,15 @@ import * as SecureStore from "expo-secure-store";
 export const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? "https://tabibee.com";
 const MOBILE_PREFIX = `${API_BASE}/api/mobile`;
 
+/** Resolve relative stored-media paths to an absolute URL */
+export function mediaUrl(path: string | null | undefined): string | undefined {
+  if (!path) return undefined;
+  if (path.startsWith("http://") || path.startsWith("https://") || path.startsWith("data:")) {
+    return path;
+  }
+  return `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
 const TOKEN_KEY = "tabibee_jwt";
 
 // ── Token management ──────────────────────────────────────────────────────────

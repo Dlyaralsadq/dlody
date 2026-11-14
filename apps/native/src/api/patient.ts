@@ -109,6 +109,38 @@ export type AvailableSlot = {
 /** Alias used by map screen */
 export type MapPin = DoctorPin;
 
+export type Comment = {
+  id: string;
+  content: string;
+  createdAt: string;
+  author: { name: string; avatarUrl: string | null };
+};
+
+export type StoryGroup = {
+  doctorId: string;
+  doctor: {
+    id: string;
+    nameAr: string;
+    logoUrl: string | null;
+  };
+  stories: Array<{
+    id: string;
+    mediaUrl: string;
+    mediaType: "image" | "video";
+    createdAt: string;
+  }>;
+};
+
+export type PatientProfile = {
+  name: string;
+  email: string | null;
+  phone: string | null;
+  gender: string | null;
+  dateOfBirth: string | null;
+  bloodType: string | null;
+  avatarUrl: string | null;
+};
+
 // ── Map ───────────────────────────────────────────────────────────────────────
 export async function getMapPins(filters?: {
   specialty?: string;
@@ -145,9 +177,18 @@ export async function getDoctorPosts(doctorId: string, page = 1): Promise<FeedPo
   return apiFetch<FeedPost[]>(`/patient/doctor/${doctorId}/posts?page=${page}`);
 }
 
+// ── Home Feed ─────────────────────────────────────────────────────────────────
+export async function getHomeFeed(): Promise<{ following: FeedPost[]; suggested: FeedPost[] }> {
+  return apiFetch(`/patient/feed`);
+}
+
 // ── Explore ───────────────────────────────────────────────────────────────────
-export async function getExploreFeed(patientId: string): Promise<{ feed: FeedPost[] }> {
-  return apiFetch(`/patient/explore`);
+export async function getExploreFeed(params?: { q?: string; page?: number }): Promise<{ feed: FeedPost[] }> {
+  const q = new URLSearchParams();
+  if (params?.q)    q.set("q", params.q);
+  if (params?.page) q.set("page", String(params.page));
+  const qs = q.toString();
+  return apiFetch(`/patient/explore${qs ? `?${qs}` : ""}`);
 }
 
 export async function searchExplore(q: string): Promise<{ posts: FeedPost[]; doctors: DoctorPublic[] }> {
@@ -179,6 +220,8 @@ export async function bookAppointment(data: {
   date: string;
   time: string;
   reason?: string;
+  patientName?: string;
+  patientPhone?: string;
 }): Promise<{ success: boolean; appointmentId: string }> {
   return apiFetch(`/patient/book`, { method: "POST", body: data });
 }
@@ -196,8 +239,16 @@ export async function savePost(postId: string): Promise<{ saved: boolean }> {
   return apiFetch(`/patient/posts/${postId}/save`, { method: "POST" });
 }
 
-export async function getSavedPosts(): Promise<FeedPost[]> {
+export async function getSavedPosts(): Promise<{ posts: FeedPost[] }> {
   return apiFetch(`/patient/saved`);
+}
+
+export async function getPostComments(postId: string): Promise<{ comments: Comment[] }> {
+  return apiFetch(`/patient/posts/${postId}/comments`);
+}
+
+export async function addComment(postId: string, content: string): Promise<{ success: boolean; comment: Comment }> {
+  return apiFetch(`/patient/posts/${postId}/comments`, { method: "POST", body: { content } });
 }
 
 export async function followDoctor(doctorId: string): Promise<{ following: boolean }> {
@@ -209,6 +260,10 @@ export async function rateDoctor(
   score: number
 ): Promise<{ success: boolean }> {
   return apiFetch(`/patient/doctor/${doctorId}/rate`, { method: "POST", body: { score } });
+}
+
+export async function getStories(): Promise<{ stories: StoryGroup[] }> {
+  return apiFetch(`/patient/stories`);
 }
 
 // ── Patient profile ───────────────────────────────────────────────────────────

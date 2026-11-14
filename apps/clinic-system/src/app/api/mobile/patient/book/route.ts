@@ -2,6 +2,16 @@ import type { NextRequest } from "next/server";
 import { getMobileSession, unauthorized, badRequest, ok } from "@/lib/mobileAuth";
 import { prisma } from "@/lib/prisma";
 import { generateId } from "@/lib/utils";
+import { getAppointmentDaySlots } from "@/app/actions/appointmentAvailability";
+
+export async function GET(req: NextRequest) {
+  const { searchParams } = req.nextUrl;
+  const doctorId = searchParams.get("doctorId");
+  const date = searchParams.get("date");
+  if (!doctorId || !date) return badRequest("doctorId and date required");
+  const slots = await getAppointmentDaySlots(doctorId, date);
+  return ok(slots);
+}
 
 export async function POST(req: NextRequest) {
   const session = getMobileSession(req);
@@ -9,7 +19,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { doctorId, date, time, reason } = body;
+    const { doctorId, date, time, reason, patientName, patientPhone } = body;
 
     if (!doctorId || !date || !time) {
       return badRequest("doctorId, date, and time are required");
@@ -48,6 +58,9 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    const bookedName  = (typeof patientName === "string" && patientName.trim()) ? patientName.trim() : (user?.name ?? session.name);
+    const bookedPhone = (typeof patientPhone === "string" && patientPhone.trim()) ? patientPhone.trim() : (user?.phone ?? "");
+
     if (!patient) {
       const patientNumber = `ONL-${Date.now().toString().slice(-6)}`;
       patient = await prisma.patient.create({
@@ -55,9 +68,9 @@ export async function POST(req: NextRequest) {
           id:            generateId("PAT"),
           patientNumber,
           doctorId,
-          name:          user?.name ?? session.name,
-          nameAr:        user?.name ?? session.name,
-          phone:         user?.phone ?? "",
+          name:          bookedName,
+          nameAr:        bookedName,
+          phone:         bookedPhone,
           email:         user?.email ?? null,
           gender:        user?.gender ?? "other",
           dateOfBirth:   user?.dateOfBirth ?? null,
@@ -80,6 +93,9 @@ export async function POST(req: NextRequest) {
         reason:            reason ?? null,
         source:            "online",
         queueNumber:       null,
+        patientPhone:      bookedPhone || null,
+        bookedForName:     bookedName,
+        bookingForSelf:    !patientName,
       },
     });
 

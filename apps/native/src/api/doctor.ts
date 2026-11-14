@@ -107,9 +107,48 @@ export type DoctorSettings = {
   recurringPatientsEnabled: boolean;
 };
 
+export type QueueAppointment = {
+  id: string;
+  appointmentNumber: string;
+  queueNumber: number;
+  date: string;
+  time?: string;
+  status: AppointmentStatus;
+  arrivalStatus: string;
+  reason: string | null;
+  patient: {
+    id: string;
+    name: string;
+    nameAr: string | null;
+    phone: string;
+    patientNumber: string;
+  };
+};
+
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 export async function getDashboard(): Promise<DashboardData> {
   return apiFetch(`/doctor/dashboard`);
+}
+
+// ── Today's Queue ─────────────────────────────────────────────────────────────
+export async function getTodayQueue(): Promise<{ queue: QueueAppointment[] }> {
+  return apiFetch(`/doctor/queue`);
+}
+
+// ── Create Appointment ────────────────────────────────────────────────────────
+export async function createAppointment(data: {
+  patientName: string;
+  patientPhone: string;
+  date: string;
+  time: string;
+  reason?: string;
+}): Promise<{ success: boolean; appointmentId: string; appointmentNumber: string }> {
+  return apiFetch(`/doctor/appointments/create`, { method: "POST", body: data });
+}
+
+// ── Delete Appointment ────────────────────────────────────────────────────────
+export async function deleteAppointment(id: string): Promise<{ success: boolean }> {
+  return apiFetch(`/doctor/appointments/${id}`, { method: "DELETE" });
 }
 
 // ── Appointments ──────────────────────────────────────────────────────────────
@@ -133,6 +172,22 @@ export async function updateAppointmentStatus(
   return apiFetch(`/doctor/appointments/${id}/status`, {
     method: "PATCH",
     body: { status, ...extra },
+  });
+}
+
+export async function updateAppointment(
+  id: string,
+  data: {
+    status?: string;
+    arrivalStatus?: string;
+    notes?: string;
+    diagnosis?: string;
+    prescription?: string;
+  }
+): Promise<{ success: boolean }> {
+  return apiFetch(`/doctor/appointments/${id}`, {
+    method: "PATCH",
+    body: data,
   });
 }
 
