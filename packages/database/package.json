@@ -16,7 +16,7 @@
     "db:seed-check": "tsx prisma/seed-check.ts",
     "db:studio": "prisma studio --config prisma.config.ts",
     "db:reset": "prisma migrate reset --force --config prisma.config.ts && tsx prisma/seed.ts",
-    "postinstall": "prisma generate --config prisma.config.ts"
+    "postinstall": "node -e \"if(!process.env.CI && !process.env.EAS_BUILD_PROFILE){require('child_process').execSync('prisma generate --config prisma.config.ts',{stdio:'inherit'})}\""
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.8.0",
