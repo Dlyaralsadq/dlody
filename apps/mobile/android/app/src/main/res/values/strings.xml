@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">طبيبي</string>
+    <string name="title_activity_main">طبيبي</string>
+    <string name="package_name">iq.clinicpro.app</string>
+    <string name="custom_url_scheme">iq.clinicpro.app</string>
+</resources>

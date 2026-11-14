@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="320" viewBox="0 0 820 320" role="img" aria-label="Tabibee">
+  <rect width="820" height="320" fill="#FFFFFF"/>
+  <mask id="eight-lockup" maskUnits="userSpaceOnUse">
+    <rect width="820" height="320" fill="#FFFFFF"/>
+    <ellipse cx="150" cy="146" rx="16" ry="20" fill="#000000"/>
+    <ellipse cx="150" cy="178" rx="16" ry="20" fill="#000000"/>
+  </mask>
+  <g fill="none" stroke="#12141C" stroke-width="58" stroke-linecap="round" mask="url(#eight-lockup)">
+    <path d="M48 160 H252"/>
+    <path d="M150 58 V262"/>
+  </g>
+  <text x="300" y="186" fill="#12141C" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="68" font-weight="600" letter-spacing="-1.5">Tabibee</text>
+</svg>
