@@ -113,7 +113,8 @@ export type Comment = {
   id: string;
   content: string;
   createdAt: string;
-  author: { name: string; avatarUrl: string | null };
+  author?: { name: string; avatarUrl?: string | null };
+  patient?: { name: string };
 };
 
 export type StoryGroup = {

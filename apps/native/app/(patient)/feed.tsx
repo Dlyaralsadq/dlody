@@ -168,7 +168,7 @@ export default function FeedScreen() {
                 onFollow={doFollow}
                 onDoctorPress={handleDoctorPress}
                 onComment={(id) =>
-                  router.push({ pathname: "/(patient)/doctor/[id]", params: { id: item.data.doctor.id } })
+                  router.push({ pathname: "/(patient)/comments/[postId]", params: { postId: id } })
                 }
               />
             </View>

@@ -1,46 +1,29 @@
 /**
  * Public Doctor Profile — Patient view — with two tabs: Posts & Clinic Info
  */
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import {
   View, Text, StyleSheet, ScrollView, Pressable,
-  Linking, Alert, ActivityIndicator,
+  Linking, ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
+import { API_BASE } from "@/api/client";
 import { useLocalSearchParams, router } from "expo-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
 import { Colors, Typography, Spacing } from "@/theme";
 import { getDoctorPublic, followDoctor, rateDoctor, likePost, savePost } from "@/api/patient";
-import { Avatar, Badge } from "@/components/ui";
+import { Avatar } from "@/components/ui";
 import PostCard from "@/components/PostCard";
-import { useAuthStore } from "@/stores/auth";
 
 type Tab = "posts" | "info";
 
-function buildClinicMapHtml(lat: number, lng: number, nameAr: string): string {
-  return `
-<!DOCTYPE html><html><head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<style>* { margin:0; padding:0; box-sizing:border-box; } html,body,#map { width:100%; height:100%; }</style>
-</head><body><div id="map"></div>
-<script>
-var map = L.map('map',{zoomControl:false,attributionControl:false}).setView([${lat},${lng}],15);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:18,subdomains:'abcd'}).addTo(map);
-var icon = L.divIcon({className:'',html:'<div style="width:14px;height:14px;border-radius:50%;background:#6366f1;border:2px solid #fff;box-shadow:0 0 8px rgba(99,102,241,0.9);"></div>',iconSize:[14,14],iconAnchor:[7,7]});
-L.marker([${lat},${lng}],{icon:icon}).bindPopup('<b style="direction:rtl">${nameAr.replace(/'/g, "\\'")}</b>').addTo(map).openPopup();
-</script></body></html>`;
-}
-
 export default function DoctorProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const user    = useAuthStore((s) => s.user);
   const qc      = useQueryClient();
-  const [tab,          setTab]         = useState<Tab>("posts");
-  const [ratingScore,  setRatingScore] = useState(0);
+  const [tab, setTab] = useState<Tab>("posts");
+  const [ratingScore, setRatingScore] = useState(0);
   const [ratingSubmitted, setRatingSubmitted] = useState(false);
 
   const { data, isLoading } = useQuery({
@@ -72,8 +55,6 @@ export default function DoctorProfileScreen() {
     mutationFn: (postId: string) => savePost(postId),
     onSuccess:  () => qc.invalidateQueries({ queryKey: ["saved-posts"] }),
   });
-
-  const handleDoctorPress = useCallback(() => {}, []);
 
   if (isLoading || !data) {
     return (
@@ -167,7 +148,9 @@ export default function DoctorProfileScreen() {
                   onLike={doLike}
                   onSave={doSave}
                   showFollowButton={false}
-                  onDoctorPress={handleDoctorPress}
+                  onComment={(postId) =>
+                    router.push({ pathname: "/(patient)/comments/[postId]", params: { postId } })
+                  }
                 />
               ))
             )}
@@ -270,8 +253,7 @@ export default function DoctorProfileScreen() {
                 <View style={styles.miniMapContainer}>
                   <WebView
                     source={{
-                      html: buildClinicMapHtml(doctor.clinicLat, doctor.clinicLng, doctor.nameAr),
-                      baseUrl: "https://tabibee.com",
+                      uri: `${API_BASE}/api/mobile/map-page?lat=${doctor.clinicLat}&lng=${doctor.clinicLng}`,
                     }}
                     style={styles.miniMap}
                     javaScriptEnabled

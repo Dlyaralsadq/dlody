@@ -86,7 +86,7 @@ export default function SavedScreen() {
             onFollow={doFollow}
             onDoctorPress={handleDoctorPress}
             onComment={(id) =>
-              router.push({ pathname: "/(patient)/doctor/[id]", params: { id: item.doctor.id } })
+              router.push({ pathname: "/(patient)/comments/[postId]", params: { postId: id } })
             }
           />
         )}

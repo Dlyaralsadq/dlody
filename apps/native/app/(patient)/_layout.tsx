@@ -97,6 +97,7 @@ export default function PatientLayout() {
       {/* Nested screens — not tabs */}
       <Tabs.Screen name="book/[doctorId]" options={{ href: null }} />
       <Tabs.Screen name="doctor/[id]" options={{ href: null }} />
+      <Tabs.Screen name="comments/[postId]" options={{ href: null }} />
     </Tabs>
   );
 }
