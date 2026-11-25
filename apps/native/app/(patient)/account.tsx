@@ -9,6 +9,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Ionicons } from "@expo/vector-icons";
 import { Colors, Typography, Spacing } from "@/theme";
 import { useAuthStore, useUser } from "@/stores/auth";
 import { getMyProfile, updateMyProfile } from "@/api/patient";
@@ -90,7 +91,16 @@ export default function AccountScreen() {
 
           {/* Profile card */}
           <View style={styles.profileCard}>
-            <Avatar uri={(displayProfile as any).avatarUrl} name={displayProfile.name} size={72} />
+            {/* Avatar with camera button */}
+            <View style={styles.avatarWrap}>
+              <Avatar uri={(displayProfile as any).avatarUrl} name={displayProfile.name} size={72} />
+              <Pressable
+                style={styles.cameraBtn}
+                onPress={() => Alert.alert("تغيير الصورة", "قريباً")}
+              >
+                <Ionicons name="camera" size={12} color="#fff" />
+              </Pressable>
+            </View>
             <View style={styles.profileInfo}>
               <Text style={styles.profileName}>{displayProfile.name}</Text>
               {authUser.email && (
@@ -180,7 +190,7 @@ export default function AccountScreen() {
               <MenuRow icon="📅" label="مواعيدي"     onPress={() => router.push("/(patient)/appointments")} />
               <MenuRow icon="🔖" label="محفوظاتي"    onPress={() => router.push("/(patient)/saved")} />
               <MenuRow icon="🗺️" label="خريطة الأطباء" onPress={() => router.push("/(patient)/map")} />
-              <MenuRow icon="💬" label="الدعم الفني" onPress={() => {}} />
+              <MenuRow icon="💬" label="الدعم الفني" onPress={() => Alert.alert("الدعم الفني", "للتواصل مع الدعم: support@tabibee.com", [{ text: "حسناً" }])} />
             </View>
           </View>
 
@@ -213,7 +223,8 @@ function MenuRow({ icon, label, onPress }: { icon: string; label: string; onPres
       style={({ pressed }) => [styles.menuRow, pressed && { opacity: 0.7 }]}
       onPress={onPress}
     >
-      <Text style={styles.menuArrow}>‹</Text>
+      {/* RTL layout: arrow on LEFT, label CENTER, icon on RIGHT */}
+      <Text style={styles.menuArrow}>›</Text>
       <Text style={styles.menuLabel}>{label}</Text>
       <Text style={styles.menuIcon}>{icon}</Text>
     </Pressable>
@@ -241,6 +252,23 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     color:      Colors.text1,
     textAlign:  "right",
+  },
+
+  avatarWrap: {
+    position: "relative",
+  },
+  cameraBtn: {
+    position:        "absolute",
+    bottom:          0,
+    right:           0,
+    width:           24,
+    height:          24,
+    borderRadius:    12,
+    backgroundColor: Colors.indigo,
+    alignItems:      "center",
+    justifyContent:  "center",
+    borderWidth:     2,
+    borderColor:     Colors.bgCard,
   },
 
   profileCard: {

@@ -68,11 +68,26 @@ export async function apiFetch<T = unknown>(
 
   const url = path.startsWith("http") ? path : `${MOBILE_PREFIX}${path}`;
 
-  const res = await fetch(url, {
-    method,
-    headers: finalHeaders,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  // Abort after 10 seconds to prevent the app from freezing
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method,
+      headers: finalHeaders,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    });
+  } catch (err: unknown) {
+    clearTimeout(timeoutId);
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new ApiError(0, "timeout");
+    }
+    throw new ApiError(0, err instanceof Error ? err.message : "network_error");
+  }
+  clearTimeout(timeoutId);
 
   if (!res.ok) {
     let code: string | undefined;

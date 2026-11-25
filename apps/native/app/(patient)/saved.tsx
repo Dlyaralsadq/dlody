@@ -3,7 +3,7 @@
  */
 import { useCallback } from "react";
 import {
-  View, Text, StyleSheet, FlatList, ActivityIndicator, RefreshControl,
+  View, Text, StyleSheet, FlatList, RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -40,26 +40,20 @@ export default function SavedScreen() {
 
   const posts = data?.posts ?? [];
 
-  if (isLoading) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator color={Colors.indigo} size="large" />
-      </View>
-    );
-  }
-
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>محفوظاتي</Text>
-        <Text style={styles.headerSub}>{posts.length} منشور محفوظ</Text>
+        <Text style={styles.headerSub}>
+          {isLoading ? "" : `${posts.length} منشور محفوظ`}
+        </Text>
       </View>
 
       <FlatList
         data={posts}
         keyExtractor={(item) => item.id}
         contentContainerStyle={[
-          { paddingHorizontal: Spacing.md, paddingBottom: 20 },
+          { paddingBottom: 20 },
           posts.length === 0 && styles.emptyContainer,
         ]}
         refreshControl={
@@ -79,16 +73,18 @@ export default function SavedScreen() {
           </View>
         }
         renderItem={({ item }) => (
-          <PostCard
-            post={item}
-            onLike={doLike}
-            onSave={doSave}
-            onFollow={doFollow}
-            onDoctorPress={handleDoctorPress}
-            onComment={(id) =>
-              router.push({ pathname: "/(patient)/comments/[postId]", params: { postId: id } })
-            }
-          />
+          <View style={{ paddingHorizontal: Spacing.md }}>
+            <PostCard
+              post={item}
+              onLike={doLike}
+              onSave={doSave}
+              onFollow={doFollow}
+              onDoctorPress={handleDoctorPress}
+              onComment={(id) =>
+                router.push({ pathname: "/(patient)/comments/[postId]", params: { postId: id } })
+              }
+            />
+          </View>
         )}
       />
     </SafeAreaView>
@@ -96,8 +92,7 @@ export default function SavedScreen() {
 }
 
 const styles = StyleSheet.create({
-  root:    { flex: 1, backgroundColor: Colors.bgRoot },
-  loading: { flex: 1, backgroundColor: Colors.bgRoot, alignItems: "center", justifyContent: "center" },
+  root: { flex: 1, backgroundColor: Colors.bgRoot },
 
   header: {
     paddingHorizontal: Spacing.md,

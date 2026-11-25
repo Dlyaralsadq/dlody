@@ -1,7 +1,7 @@
 /**
  * Shared PostCard component — used in explore, feed, saved, and doctor profile screens
  */
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Pressable,
   Image,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { Colors, Typography, Spacing } from "@/theme";
 import { Avatar } from "@/components/ui";
 import type { FeedPost } from "@/api/patient";
@@ -53,6 +54,11 @@ export default function PostCard({
   const [localSaved, setLocalSaved]   = useState(post.isSaved);
   const [likeCount,  setLikeCount]    = useState(post.likeCount ?? 0);
 
+  // Sync local state when props change (e.g. after re-fetch)
+  useEffect(() => { setLocalLiked(post.isLiked); }, [post.isLiked]);
+  useEffect(() => { setLocalSaved(post.isSaved); }, [post.isSaved]);
+  useEffect(() => { setLikeCount(post.likeCount ?? 0); }, [post.likeCount]);
+
   const isLong = post.content.length > 200;
 
   function handleLike() {
@@ -72,7 +78,9 @@ export default function PostCard({
       <View style={styles.headerRow}>
         <Pressable
           style={styles.doctorInfo}
-          onPress={() => onDoctorPress?.(post.doctor?.id)}
+          onPress={() => {
+            if (post.doctor?.id) onDoctorPress?.(post.doctor.id);
+          }}
         >
           <Avatar uri={post.doctor?.logoUrl} name={post.doctor?.nameAr ?? ""} size={42} />
           <View style={styles.doctorText}>
@@ -86,7 +94,9 @@ export default function PostCard({
           {showFollowButton && onFollow && (
             <Pressable
               style={styles.followBtn}
-              onPress={() => onFollow(post.doctor?.id)}
+              onPress={() => {
+                if (post.doctor?.id) onFollow(post.doctor.id);
+              }}
             >
               <Text style={styles.followBtnText}>متابعة</Text>
             </Pressable>
@@ -121,24 +131,31 @@ export default function PostCard({
 
       {/* Action row */}
       <View style={styles.actions}>
+        {/* Like */}
         <Pressable style={styles.actionBtn} onPress={handleLike}>
-          <Text style={[styles.actionIcon, localLiked && styles.actionIconActive]}>
-            {localLiked ? "❤️" : "🤍"}
-          </Text>
-          <Text style={[styles.actionCount, localLiked && { color: Colors.rose }]}>
+          <Ionicons
+            name={localLiked ? "heart" : "heart-outline"}
+            size={20}
+            color={localLiked ? "#ef4444" : Colors.text3}
+          />
+          <Text style={[styles.actionCount, localLiked && { color: "#ef4444" }]}>
             {likeCount}
           </Text>
         </Pressable>
 
+        {/* Comment */}
         <Pressable style={styles.actionBtn} onPress={() => onComment?.(post.id)}>
-          <Text style={styles.actionIcon}>💬</Text>
+          <Ionicons name="chatbubble-outline" size={20} color={Colors.text3} />
           <Text style={styles.actionCount}>{post.commentCount ?? 0}</Text>
         </Pressable>
 
+        {/* Save */}
         <Pressable style={[styles.actionBtn, { marginLeft: "auto" }]} onPress={handleSave}>
-          <Text style={[styles.actionIcon, localSaved && styles.actionIconActive]}>
-            {localSaved ? "🔖" : "🔖"}
-          </Text>
+          <Ionicons
+            name={localSaved ? "bookmark" : "bookmark-outline"}
+            size={20}
+            color={localSaved ? Colors.indigo : Colors.text3}
+          />
           <Text style={[styles.actionCount, localSaved && { color: Colors.indigo }]}>
             {localSaved ? "محفوظ" : "حفظ"}
           </Text>
@@ -239,13 +256,7 @@ const styles = StyleSheet.create({
   actionBtn: {
     flexDirection: "row",
     alignItems:    "center",
-    gap:           4,
-  },
-  actionIcon: {
-    fontSize: 18,
-  },
-  actionIconActive: {
-    // tint handled per emoji
+    gap:           5,
   },
   actionCount: {
     fontSize:  Typography.sizes.sm,

@@ -7,7 +7,7 @@ import {
   RefreshControl, Alert, Modal, TextInput, ActivityIndicator,
   KeyboardAvoidingView, Platform,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Colors, Typography, Spacing } from "@/theme";
 import { getPosts, createPost, deletePost } from "@/api/doctor";
@@ -120,6 +120,8 @@ function CreatePostModal({
 
 function PostItem({ post, onDelete }: { post: Post; onDelete: (id: string) => void }) {
   const [imgFailed, setImgFailed] = useState(false);
+  const [expanded, setExpanded]   = useState(false);
+  const isLong = post.content.length > 200;
 
   return (
     <View style={styles.postCard}>
@@ -133,7 +135,12 @@ function PostItem({ post, onDelete }: { post: Post; onDelete: (id: string) => vo
       </View>
 
       {/* Content */}
-      <Text style={styles.postContent} numberOfLines={4}>{post.content}</Text>
+      <Text style={styles.postContent} numberOfLines={expanded ? undefined : 4}>{post.content}</Text>
+      {isLong && (
+        <Pressable onPress={() => setExpanded((v) => !v)}>
+          <Text style={styles.expandText}>{expanded ? "عرض أقل" : "قراءة المزيد"}</Text>
+        </Pressable>
+      )}
 
       {/* Image */}
       {post.imageUrl && !imgFailed && (
@@ -162,7 +169,8 @@ function PostItem({ post, onDelete }: { post: Post; onDelete: (id: string) => vo
 }
 
 export default function DoctorPostsScreen() {
-  const qc = useQueryClient();
+  const qc     = useQueryClient();
+  const insets = useSafeAreaInsets();
   const [createModal, setCreateModal] = useState(false);
 
   const { data: posts = [], isLoading, refetch, isRefetching } = useQuery({
@@ -211,7 +219,7 @@ export default function DoctorPostsScreen() {
       )}
 
       {/* FAB */}
-      <Pressable style={styles.fab} onPress={() => setCreateModal(true)}>
+      <Pressable style={[styles.fab, { bottom: 24 + insets.bottom }]} onPress={() => setCreateModal(true)}>
         <Text style={styles.fabText}>+</Text>
       </Pressable>
 
@@ -254,7 +262,8 @@ const styles = StyleSheet.create({
   postTime:    { fontSize: Typography.sizes.xs, color: Colors.text3 },
   postStats:   { flexDirection: "row", gap: Spacing.sm },
   postStat:    { fontSize: Typography.sizes.sm, color: Colors.text2 },
-  postContent: { fontSize: Typography.sizes.sm, color: Colors.text1, lineHeight: 22, textAlign: "right", marginBottom: Spacing.sm },
+  postContent: { fontSize: Typography.sizes.sm, color: Colors.text1, lineHeight: 22, textAlign: "right", marginBottom: 4 },
+  expandText:  { fontSize: Typography.sizes.xs, color: Colors.indigo, fontWeight: "600", textAlign: "right", marginBottom: Spacing.sm },
   postImage: {
     width: "100%", height: 180, borderRadius: 10, marginBottom: Spacing.sm,
   },

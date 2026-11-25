@@ -34,6 +34,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   initialize: async () => {
     if (get().initialized) return;
     set({ loading: true });
+
+    // Safety net: never hang more than 6 seconds on startup
+    const safetyTimer = setTimeout(() => {
+      if (!get().initialized) {
+        set({ loading: false, initialized: true, token: null, user: null });
+      }
+    }, 6_000);
+
     try {
       const token = await getToken();
       if (token) {
@@ -42,10 +50,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ token, user });
       }
     } catch {
-      // Token is expired or invalid — clear it
+      // Token is expired, invalid, or server unreachable — clear it
       await clearToken();
       set({ token: null, user: null });
     } finally {
+      clearTimeout(safetyTimer);
       set({ loading: false, initialized: true });
     }
   },

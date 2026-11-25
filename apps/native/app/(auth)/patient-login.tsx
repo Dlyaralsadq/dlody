@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   View, Text, StyleSheet, KeyboardAvoidingView,
   Platform, ScrollView, Pressable, Alert,
@@ -10,19 +10,33 @@ import { Input, Button } from "@/components/ui";
 import { Colors, Typography, Spacing } from "@/theme";
 import { loginPatient } from "@/api/auth";
 import { useAuthStore } from "@/stores/auth";
+import type { TextInput } from "react-native";
 
 export default function PatientLoginScreen() {
   const [email,    setEmail]    = useState("");
   const [password, setPassword] = useState("");
   const [loading,  setLoading]  = useState(false);
+  const [emailError,    setEmailError]    = useState("");
+  const [passwordError, setPasswordError] = useState("");
 
+  const passwordRef = useRef<TextInput>(null);
   const setAuth = useAuthStore((s) => s.login);
 
   async function handleLogin() {
-    if (!email.trim() || !password) {
-      Alert.alert("خطأ", "يرجى إدخال البريد الإلكتروني وكلمة المرور");
-      return;
+    setEmailError("");
+    setPasswordError("");
+    let valid = true;
+
+    if (!email.trim()) {
+      setEmailError("يرجى إدخال البريد الإلكتروني");
+      valid = false;
     }
+    if (!password) {
+      setPasswordError("يرجى إدخال كلمة المرور");
+      valid = false;
+    }
+    if (!valid) return;
+
     setLoading(true);
     try {
       const result = await loginPatient(email.trim(), password);
@@ -42,7 +56,7 @@ export default function PatientLoginScreen() {
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
           <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
             <Pressable onPress={() => router.back()} style={styles.back}>
-              <Text style={styles.backText}>→ العودة</Text>
+              <Text style={styles.backText}>← العودة</Text>
             </Pressable>
 
             <View style={styles.header}>
@@ -56,17 +70,32 @@ export default function PatientLoginScreen() {
                 label="البريد الإلكتروني"
                 placeholder="example@email.com"
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(t) => { setEmail(t); setEmailError(""); }}
                 autoCapitalize="none"
                 keyboardType="email-address"
+                returnKeyType="next"
+                onSubmitEditing={() => passwordRef.current?.focus()}
+                error={emailError}
               />
               <Input
+                ref={passwordRef}
                 label="كلمة المرور"
                 placeholder="••••••••"
                 value={password}
-                onChangeText={setPassword}
-                secureTextEntry
+                onChangeText={(t) => { setPassword(t); setPasswordError(""); }}
+                password={true}
+                returnKeyType="done"
+                onSubmitEditing={handleLogin}
+                error={passwordError}
               />
+
+              {/* Forgot password */}
+              <Pressable
+                onPress={() => Alert.alert("نسيت كلمة المرور؟", "تواصل مع الدعم الفني")}
+                style={styles.forgotRow}
+              >
+                <Text style={styles.forgotText}>نسيت كلمة المرور؟</Text>
+              </Pressable>
 
               <Button
                 label="تسجيل الدخول"
@@ -105,8 +134,9 @@ const styles = StyleSheet.create({
   title:        { fontSize: Typography.sizes["2xl"], fontWeight: "900", color: Colors.text1 },
   subtitle:     { fontSize: Typography.sizes.base, color: Colors.text2, marginTop: 4 },
   form:         { gap: Spacing.md },
+  forgotRow:    { alignItems: "flex-end" },
+  forgotText:   { color: Colors.indigoLight, fontSize: Typography.sizes.sm, fontWeight: "600" },
   registerRow:  { flexDirection: "row", justifyContent: "center", alignItems: "center", marginTop: Spacing.sm },
   registerText: { color: Colors.text2, fontSize: Typography.sizes.base },
   registerLink: { color: Colors.indigoLight, fontSize: Typography.sizes.base, fontWeight: "700" },
 });
-

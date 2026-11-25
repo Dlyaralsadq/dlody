@@ -42,12 +42,15 @@ function statusLabel(status: string): string {
 
 function AppointmentCard({
   item,
+  expanded,
+  onToggle,
   onUpdated,
 }: {
   item: Appointment;
+  expanded: boolean;
+  onToggle: () => void;
   onUpdated: () => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
   const [notes,    setNotes]    = useState(item.notes    ?? "");
   const [diagnosis,setDiagnosis] = useState(item.diagnosis ?? "");
   const [prescription, setPrescription] = useState(item.prescription ?? "");
@@ -58,13 +61,20 @@ function AppointmentCard({
     onError: (err: Error) => Alert.alert("خطأ", err.message),
   });
 
+  const formattedDate = (() => {
+    try {
+      const d = new Date(item.date);
+      return `${d.toLocaleDateString("ar-IQ", { year: "numeric", month: "long", day: "numeric" })} ${d.toLocaleTimeString("ar-IQ", { hour: "2-digit", minute: "2-digit", hour12: true })}`;
+    } catch { return item.date; }
+  })();
+
   return (
     <View style={styles.card}>
-      <Pressable onPress={() => setExpanded((v) => !v)} style={styles.cardTop}>
+      <Pressable onPress={onToggle} style={styles.cardTop}>
         <View style={{ flex: 1 }}>
           <Text style={styles.patientName}>{item.patient?.name}</Text>
           <Text style={styles.patientPhone}>📱 {item.patient?.phone}</Text>
-          <Text style={styles.apptDate}>📅 {item.date}</Text>
+          <Text style={styles.apptDate}>📅 {formattedDate}</Text>
         </View>
         <View style={[
           styles.statusBadge,
@@ -163,6 +173,7 @@ export default function DoctorAppointmentsScreen() {
   const [tab,        setTab]        = useState<TabKey>("today");
   const [dateFilter, setDateFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   function getDateParam() {
     if (dateFilter) return dateFilter;
@@ -242,6 +253,8 @@ export default function DoctorAppointmentsScreen() {
           renderItem={({ item }) => (
             <AppointmentCard
               item={item}
+              expanded={expandedId === item.id}
+              onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
               onUpdated={() => qc.invalidateQueries({ queryKey: ["doctor-appointments"] })}
             />
           )}

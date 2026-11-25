@@ -3,7 +3,7 @@
  * using the same Google tiles as the website, with an OpenStreetMap fallback.
  * A doctor list stays on screen even if the map tiles fail to load.
  */
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, useRef } from "react";
 import {
   View, Text, StyleSheet, TextInput, ScrollView,
   Pressable, ActivityIndicator,
@@ -99,8 +99,18 @@ window.addEventListener('load', boot);
 
 export default function MapScreen() {
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [specialtyId, setSpecialtyId] = useState("");
   const [govId, setGovId] = useState("");
+
+  function handleSearchChange(text: string) {
+    setSearch(text);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      setDebouncedSearch(text.trim());
+    }, 400);
+  }
 
   const { data: pins = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["map-pins", specialtyId, govId],
@@ -118,12 +128,12 @@ export default function MapScreen() {
   });
 
   const filtered = useMemo(() => pins.filter((p) => {
-    if (!search.trim()) return true;
-    const q = search.trim();
+    if (!debouncedSearch) return true;
+    const q = debouncedSearch;
     return (p.nameAr || "").includes(q)
       || (p.specialtyAr || "").includes(q)
       || (p.clinicAddress || "").includes(q);
-  }), [pins, search]);
+  }), [pins, debouncedSearch]);
 
   const html = useMemo(() => buildMapHtml(filtered), [filtered]);
 
@@ -145,7 +155,7 @@ export default function MapScreen() {
           placeholder="ابحث عن طبيب أو عنوان"
           placeholderTextColor={Colors.text3}
           value={search}
-          onChangeText={setSearch}
+          onChangeText={handleSearchChange}
         />
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
           <Chip label="الكل" active={!specialtyId && !govId} onPress={() => { setSpecialtyId(""); setGovId(""); }} />
@@ -165,7 +175,7 @@ export default function MapScreen() {
           <View style={styles.center}><ActivityIndicator color={Colors.indigo} size="large" /></View>
         ) : (
           <WebView
-            key={`${specialtyId}-${govId}-${filtered.length}`}
+            key={`map-${specialtyId}-${govId}`}
             source={{ html, baseUrl: "https://tabibee.com" }}
             style={styles.map}
             onMessage={onMessage}

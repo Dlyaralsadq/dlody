@@ -1,7 +1,7 @@
 /**
  * Doctor / Admin / Secretary login screen
  */
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   View, Text, StyleSheet, KeyboardAvoidingView,
   Platform, ScrollView, Pressable, Alert,
@@ -13,19 +13,33 @@ import { Input, Button } from "@/components/ui";
 import { Colors, Typography, Spacing } from "@/theme";
 import { loginDoctor } from "@/api/auth";
 import { useAuthStore } from "@/stores/auth";
+import type { TextInput } from "react-native";
 
 export default function LoginScreen() {
   const [identifier, setIdentifier] = useState("");
   const [password,   setPassword]   = useState("");
   const [loading,    setLoading]     = useState(false);
+  const [emailError,    setEmailError]    = useState("");
+  const [passwordError, setPasswordError] = useState("");
 
+  const passwordRef = useRef<TextInput>(null);
   const setAuth = useAuthStore((s) => s.login);
 
   async function handleLogin() {
-    if (!identifier.trim() || !password) {
-      Alert.alert("خطأ", "يرجى إدخال البريد الإلكتروني وكلمة المرور");
-      return;
+    setEmailError("");
+    setPasswordError("");
+    let valid = true;
+
+    if (!identifier.trim()) {
+      setEmailError("يرجى إدخال البريد الإلكتروني أو اسم المستخدم");
+      valid = false;
     }
+    if (!password) {
+      setPasswordError("يرجى إدخال كلمة المرور");
+      valid = false;
+    }
+    if (!valid) return;
+
     setLoading(true);
     try {
       const result = await loginDoctor(identifier.trim(), password);
@@ -57,7 +71,7 @@ export default function LoginScreen() {
           >
             {/* Back */}
             <Pressable onPress={() => router.back()} style={styles.back}>
-              <Text style={styles.backText}>→ العودة</Text>
+              <Text style={styles.backText}>← العودة</Text>
             </Pressable>
 
             {/* Header */}
@@ -73,17 +87,32 @@ export default function LoginScreen() {
                 label="البريد الإلكتروني أو اسم المستخدم"
                 placeholder="example@email.com"
                 value={identifier}
-                onChangeText={setIdentifier}
+                onChangeText={(t) => { setIdentifier(t); setEmailError(""); }}
                 autoCapitalize="none"
                 keyboardType="email-address"
+                returnKeyType="next"
+                onSubmitEditing={() => passwordRef.current?.focus()}
+                error={emailError}
               />
               <Input
+                ref={passwordRef}
                 label="كلمة المرور"
                 placeholder="••••••••"
                 value={password}
-                onChangeText={setPassword}
-                secureTextEntry
+                onChangeText={(t) => { setPassword(t); setPasswordError(""); }}
+                password={true}
+                returnKeyType="done"
+                onSubmitEditing={handleLogin}
+                error={passwordError}
               />
+
+              {/* Forgot password */}
+              <Pressable
+                onPress={() => Alert.alert("نسيت كلمة المرور؟", "تواصل مع الدعم الفني")}
+                style={styles.forgotRow}
+              >
+                <Text style={styles.forgotText}>نسيت كلمة المرور؟</Text>
+              </Pressable>
 
               <Button
                 label="تسجيل الدخول"
@@ -106,13 +135,14 @@ function translateError(e: string): string {
 }
 
 const styles = StyleSheet.create({
-  scroll:    { flexGrow: 1, padding: Spacing.lg },
-  back:      { marginBottom: Spacing.lg },
-  backText:  { color: Colors.indigo, fontSize: Typography.sizes.base, fontWeight: "600" },
-  header:    { alignItems: "center", marginBottom: Spacing.xl },
-  icon:      { fontSize: 56, marginBottom: Spacing.sm },
-  title:     { fontSize: Typography.sizes["2xl"], fontWeight: "900", color: Colors.text1 },
-  subtitle:  { fontSize: Typography.sizes.base, color: Colors.text2, marginTop: 4 },
-  form:      { gap: Spacing.md },
+  scroll:     { flexGrow: 1, padding: Spacing.lg },
+  back:       { marginBottom: Spacing.lg },
+  backText:   { color: Colors.indigo, fontSize: Typography.sizes.base, fontWeight: "600" },
+  header:     { alignItems: "center", marginBottom: Spacing.xl },
+  icon:       { fontSize: 56, marginBottom: Spacing.sm },
+  title:      { fontSize: Typography.sizes["2xl"], fontWeight: "900", color: Colors.text1 },
+  subtitle:   { fontSize: Typography.sizes.base, color: Colors.text2, marginTop: 4 },
+  form:       { gap: Spacing.md },
+  forgotRow:  { alignItems: "flex-end" },
+  forgotText: { color: Colors.indigoLight, fontSize: Typography.sizes.sm, fontWeight: "600" },
 });
-

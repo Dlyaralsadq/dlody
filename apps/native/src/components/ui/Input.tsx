@@ -31,12 +31,16 @@ const Input = forwardRef<TextInput, Props>(
       password = false,
       rtl = true,
       style,
+      secureTextEntry: secureEntryProp,
       ...props
     },
     ref
   ) => {
     const [focused, setFocused] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+
+    // Both `password` prop AND `secureTextEntry` prop enable the eye toggle
+    const isPasswordField = password || !!secureEntryProp;
 
     const borderColor = error
       ? Colors.rose
@@ -75,25 +79,25 @@ const Input = forwardRef<TextInput, Props>(
               style,
             ]}
             placeholderTextColor={Colors.text3}
-            secureTextEntry={password && !showPassword}
+            secureTextEntry={isPasswordField && !showPassword}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
             {...props}
           />
-          {password && (
+          {isPasswordField && (
             <TouchableOpacity
               onPress={() => setShowPassword((v) => !v)}
               style={styles.iconRight}
               hitSlop={12}
             >
               <Ionicons
-                name={showPassword ? "eye-off-outline" : "eye-outline"}
-                size={18}
-                color={Colors.text3}
+                name={showPassword ? "eye-off" : "eye"}
+                size={20}
+                color={error ? Colors.rose : focused ? Colors.indigoLight : Colors.text3}
               />
             </TouchableOpacity>
           )}
-          {!password && rightIcon && (
+          {!isPasswordField && rightIcon && (
             <View style={styles.iconRight}>{rightIcon}</View>
           )}
         </View>

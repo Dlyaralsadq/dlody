@@ -4,7 +4,7 @@
 import { useState } from "react";
 import {
   View, Text, StyleSheet, ScrollView, Pressable,
-  Linking, ActivityIndicator,
+  Linking, ActivityIndicator, FlatList,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
@@ -57,9 +57,9 @@ export default function DoctorProfileScreen() {
 
   if (isLoading || !data) {
     return (
-      <View style={styles.loading}>
+      <SafeAreaView style={styles.loading} edges={["top"]}>
         <ActivityIndicator color={Colors.indigo} size="large" />
-      </View>
+      </SafeAreaView>
     );
   }
 
@@ -89,8 +89,8 @@ export default function DoctorProfileScreen() {
 
           {/* Stats row */}
           <View style={styles.statsRow}>
-            <StatBubble label="منشور" value={posts.length} />
-            <StatBubble label="متابع" value={doctor.followerCount} />
+            <StatBubble label="منشور" value={posts.length.toLocaleString("ar-IQ")} />
+            <StatBubble label="متابع" value={(doctor.followerCount ?? 0).toLocaleString("ar-IQ")} />
             <StatBubble label="تقييم" value={rating.avg > 0 ? rating.avg.toFixed(1) : "—"} icon="⭐" />
           </View>
 
@@ -140,18 +140,23 @@ export default function DoctorProfileScreen() {
                 <Text style={styles.emptyText}>لا توجد منشورات بعد</Text>
               </View>
             ) : (
-              posts.map((post) => (
-                <PostCard
-                  key={post.id}
-                  post={post}
-                  onLike={doLike}
-                  onSave={doSave}
-                  showFollowButton={false}
-                  onComment={(postId) =>
-                    router.push({ pathname: "/(patient)/comments/[postId]", params: { postId } })
-                  }
-                />
-              ))
+              <FlatList
+                data={posts}
+                keyExtractor={(p) => p.id}
+                scrollEnabled={false}
+                nestedScrollEnabled={false}
+                renderItem={({ item: post }) => (
+                  <PostCard
+                    post={post}
+                    onLike={doLike}
+                    onSave={doSave}
+                    showFollowButton={false}
+                    onComment={(postId) =>
+                      router.push({ pathname: "/(patient)/comments/[postId]", params: { postId } })
+                    }
+                  />
+                )}
+              />
             )}
 
             {/* Rating section */}
@@ -262,6 +267,14 @@ export default function DoctorProfileScreen() {
                     scrollEnabled={false}
                   />
                 </View>
+                <Pressable
+                  style={styles.openMapsBtn}
+                  onPress={() =>
+                    Linking.openURL(`https://maps.google.com/?q=${doctor.clinicLat},${doctor.clinicLng}`)
+                  }
+                >
+                  <Text style={styles.openMapsBtnText}>📍 فتح في خرائط غوغل</Text>
+                </Pressable>
               </View>
             )}
           </View>
@@ -447,4 +460,19 @@ const styles = StyleSheet.create({
     borderColor:    Colors.border,
   },
   miniMap: { flex: 1 },
+
+  openMapsBtn: {
+    marginTop:        Spacing.sm,
+    paddingVertical:  10,
+    borderRadius:     8,
+    backgroundColor:  "rgba(99,102,241,0.1)",
+    borderWidth:      1,
+    borderColor:      "rgba(99,102,241,0.25)",
+    alignItems:       "center",
+  },
+  openMapsBtnText: {
+    color:      Colors.indigoLight,
+    fontWeight: "700",
+    fontSize:   Typography.sizes.sm,
+  },
 });

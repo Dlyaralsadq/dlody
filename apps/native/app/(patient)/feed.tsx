@@ -4,7 +4,7 @@
 import { useCallback } from "react";
 import {
   View, Text, StyleSheet, FlatList, ScrollView,
-  Pressable, ActivityIndicator, RefreshControl,
+  Pressable, RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -117,19 +117,35 @@ export default function FeedScreen() {
 
   if (feedLoading) {
     return (
-      <View style={styles.loadingScreen}>
-        <ActivityIndicator color={Colors.indigo} size="large" />
-        <Text style={styles.loadingText}>جارٍ التحميل...</Text>
-      </View>
+      <SafeAreaView style={styles.root} edges={["top"]}>
+        <View style={styles.pageHeader}>
+          <Text style={styles.pageSub}>طبيبي</Text>
+          <Text style={styles.pageTitle}>الرئيسية</Text>
+        </View>
+        {[1, 2, 3].map((i) => (
+          <View key={i} style={styles.skeletonCard}>
+            <View style={styles.skeletonRow}>
+              <View style={styles.skeletonAvatar} />
+              <View style={{ flex: 1, gap: 6 }}>
+                <View style={[styles.skeletonLine, { width: "60%" }]} />
+                <View style={[styles.skeletonLine, { width: "40%" }]} />
+              </View>
+            </View>
+            <View style={[styles.skeletonLine, { width: "100%", marginTop: 10 }]} />
+            <View style={[styles.skeletonLine, { width: "80%", marginTop: 6 }]} />
+            <View style={[styles.skeletonLine, { width: "90%", marginTop: 6 }]} />
+          </View>
+        ))}
+      </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>
-      {/* Page header */}
+      {/* Page header — RTL: brand tag on left, page title on right */}
       <View style={styles.pageHeader}>
-        <Text style={styles.pageTitle}>الرئيسية</Text>
         <Text style={styles.pageSub}>طبيبي</Text>
+        <Text style={styles.pageTitle}>الرئيسية</Text>
       </View>
 
       <FlatList
@@ -181,8 +197,27 @@ export default function FeedScreen() {
 
 const styles = StyleSheet.create({
   root:          { flex: 1, backgroundColor: Colors.bgRoot },
-  loadingScreen: { flex: 1, backgroundColor: Colors.bgRoot, alignItems: "center", justifyContent: "center", gap: 12 },
-  loadingText:   { color: Colors.text2 },
+  skeletonCard: {
+    marginHorizontal: Spacing.md,
+    marginBottom:     Spacing.sm,
+    backgroundColor:  Colors.bgCard,
+    borderRadius:     16,
+    padding:          Spacing.md,
+    borderWidth:      1,
+    borderColor:      Colors.border,
+  },
+  skeletonRow: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
+  skeletonAvatar: {
+    width:         44,
+    height:        44,
+    borderRadius:  22,
+    backgroundColor: Colors.bgSurface,
+  },
+  skeletonLine: {
+    height:        12,
+    borderRadius:  6,
+    backgroundColor: Colors.bgSurface,
+  },
 
   pageHeader: {
     paddingHorizontal: Spacing.md,

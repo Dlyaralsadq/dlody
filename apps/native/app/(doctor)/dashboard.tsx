@@ -190,12 +190,20 @@ export default function DoctorDashboard() {
       >
         {/* Hero */}
         <LinearGradient colors={["#0d1127", Colors.bgRoot]} style={styles.hero}>
+          {/* RTL: avatar on RIGHT, text on LEFT */}
           <View style={styles.heroRow}>
-            <Avatar uri={doctor?.logoUrl} name={doctor?.nameAr ?? user?.name ?? ""} size={56} />
             <View style={styles.heroInfo}>
               <Text style={styles.greeting}>مرحباً، د.</Text>
               <Text style={styles.docName}>{doctor?.nameAr ?? user?.name}</Text>
               <Text style={styles.docSpec}>{doctor?.specialty?.nameAr}</Text>
+            </View>
+            <View>
+              <Avatar uri={doctor?.logoUrl} name={doctor?.nameAr ?? user?.name ?? ""} size={56} />
+              {stats && (stats.unreadMessages ?? 0) > 0 && (
+                <View style={styles.unreadBadge}>
+                  <Text style={styles.unreadBadgeText}>{stats.unreadMessages}</Text>
+                </View>
+              )}
             </View>
           </View>
           <Text style={styles.dateToday}>
@@ -243,7 +251,7 @@ export default function DoctorDashboard() {
           )}
 
           <Pressable style={styles.viewAllBtn} onPress={() => router.push("/(doctor)/appointments")}>
-            <Text style={styles.viewAllText}>عرض جميع المواعيد ←</Text>
+            <Text style={styles.viewAllText}>عرض جميع المواعيد →</Text>
           </Pressable>
         </View>
 
@@ -290,7 +298,20 @@ const styles = StyleSheet.create({
 
   hero:     { padding: Spacing.lg, paddingBottom: Spacing.md },
   heroRow:  { flexDirection: "row", alignItems: "center", gap: Spacing.md, marginBottom: Spacing.sm },
-  heroInfo: { flex: 1, alignItems: "flex-end" },
+  heroInfo: { flex: 1, alignItems: "flex-start" },
+  unreadBadge: {
+    position:        "absolute",
+    top:             -4,
+    right:           -4,
+    minWidth:        18,
+    height:          18,
+    borderRadius:    9,
+    backgroundColor: Colors.rose,
+    alignItems:      "center",
+    justifyContent:  "center",
+    paddingHorizontal: 4,
+  },
+  unreadBadgeText: { color: "#fff", fontSize: 10, fontWeight: "800" },
   greeting: { fontSize: Typography.sizes.sm, color: Colors.text3 },
   docName:  { fontSize: Typography.sizes.xl, fontWeight: "900", color: Colors.text1 },
   docSpec:  { fontSize: Typography.sizes.sm, color: Colors.indigo },

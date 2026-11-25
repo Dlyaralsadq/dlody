@@ -60,7 +60,7 @@ function PatientDetailModal({
                 <InfoRow label="الاسم"          value={data.name} />
                 <InfoRow label="رقم المريض"     value={data.patientNumber} />
                 <InfoRow label="الهاتف"          value={data.phone} />
-                <InfoRow label="الجنس"           value={data.gender === "male" ? "ذكر" : "أنثى"} />
+                <InfoRow label="الجنس"           value={data.gender === "male" ? "ذكر" : data.gender === "female" ? "أنثى" : "غير محدد"} />
                 {data.dateOfBirth && (
                   <InfoRow label="تاريخ الميلاد" value={data.dateOfBirth} />
                 )}
@@ -181,7 +181,7 @@ export default function DoctorPatientsScreen() {
                 <Text style={styles.patientPhone}>📱 {item.phone}</Text>
                 {item.createdAt && (
                   <Text style={styles.patientMeta}>
-                    آخر زيارة: {item.createdAt.split("T")[0]}
+                    تاريخ التسجيل: {item.createdAt.split("T")[0]}
                   </Text>
                 )}
               </View>

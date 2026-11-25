@@ -99,16 +99,38 @@ export function isArabicLocale(locale: string): boolean {
   return locale === "ar" || locale.startsWith("ar-");
 }
 
-/** Create a Google Maps tile layer. The URL stays stable so the browser can keep tiles. */
+/** Create a tile layer.
+ *  - "auto" → OpenStreetMap (works in all environments: browser, WebView, Electron)
+ *  - satellite / hybrid / terrain → Google Maps tiles (desktop browser only)
+ */
 export function createGoogleTileLayer(
   L: LeafletModule,
   locale: string,
   style: MapDisplayStyle = "auto"
 ): LeafletTileLayer {
   const lang = tileLang(locale);
-  const lyrs = GOOGLE_LYRS[style];
   const ar = lang === "ar";
 
+  // OSM for the default roadmap style — no Referer/auth needed, works everywhere
+  if (style === "auto") {
+    return L.tileLayer(
+      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      {
+        subdomains: "abc",
+        maxZoom: 19,
+        maxNativeZoom: 19,
+        minZoom: 3,
+        tileSize: 256,
+        crossOrigin: "anonymous" as const,
+        attribution: ar
+          ? '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      }
+    );
+  }
+
+  // Google tiles for satellite / hybrid / terrain (desktop browser)
+  const lyrs = GOOGLE_LYRS[style];
   return L.tileLayer(googleTileUrl(lyrs, lang), {
     ...TILE_OPTS,
     attribution: ar

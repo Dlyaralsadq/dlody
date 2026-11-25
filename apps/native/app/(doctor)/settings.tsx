@@ -1,7 +1,7 @@
 /**
  * Doctor Settings Screen — full clinic management settings
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   View, Text, StyleSheet, ScrollView, Pressable,
   TextInput, Switch, Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
@@ -41,6 +41,8 @@ export default function DoctorSettingsScreen() {
     staleTime: 60_000,
   });
 
+  const hasLoaded = useRef(false);
+
   // Form state
   const [nameAr,            setNameAr]            = useState("");
   const [bio,               setBio]               = useState("");
@@ -59,6 +61,10 @@ export default function DoctorSettingsScreen() {
 
   useEffect(() => {
     if (!data) return;
+    // Only pre-fill form once — prevent overwriting user edits on refetch
+    if (hasLoaded.current) return;
+    hasLoaded.current = true;
+
     setNameAr(data.nameAr ?? "");
     setBio(data.bioAr ?? data.bio ?? "");
     setQualification(data.qualification ?? "");
@@ -71,6 +77,7 @@ export default function DoctorSettingsScreen() {
     setApptDuration(data.appointmentDuration != null ? String(data.appointmentDuration) : "");
     setClinicAddress(data.clinicAddress ?? "");
     setPhone(data.phone ?? "");
+    // Keep announcement text — toggle only controls whether to publish it
     setAnnouncement(data.announcement ?? "");
     setShowAnnouncement(!!data.announcement);
   }, [data]);
@@ -133,8 +140,18 @@ export default function DoctorSettingsScreen() {
     <SafeAreaView style={styles.root} edges={["top"]}>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ paddingBottom: 60 }}>
-          {/* Header */}
+          {/* Header with inline save button */}
           <View style={styles.header}>
+            <Pressable
+              style={[styles.headerSaveBtn, saving && { opacity: 0.6 }]}
+              onPress={() => doSave()}
+              disabled={saving}
+            >
+              {saving
+                ? <ActivityIndicator color="#fff" size="small" />
+                : <Text style={styles.headerSaveBtnText}>حفظ</Text>
+              }
+            </Pressable>
             <Text style={styles.title}>الإعدادات</Text>
           </View>
 
@@ -216,18 +233,20 @@ export default function DoctorSettingsScreen() {
                 trackColor={{ true: Colors.indigo, false: Colors.bgSurface }}
                 thumbColor="#fff"
               />
-              <Text style={styles.switchLabel}>إظهار الإعلان</Text>
+              <Text style={styles.switchLabel}>إظهار الإعلان للمرضى</Text>
             </View>
-            {showAnnouncement && (
-              <>
-                <FieldLabel label="نص الإعلان" />
-                <FieldInput
-                  value={announcement}
-                  onChangeText={setAnnouncement}
-                  placeholder="أضف إعلاناً..."
-                  multiline
-                />
-              </>
+            {/* Always show input — text is preserved even when toggle is off */}
+            <FieldLabel label="نص الإعلان" />
+            <FieldInput
+              value={announcement}
+              onChangeText={setAnnouncement}
+              placeholder="أضف إعلاناً مؤقتاً مثل: العيادة مغلقة الجمعة..."
+              multiline
+            />
+            {!showAnnouncement && announcement.trim() !== "" && (
+              <Text style={styles.announcementHint}>
+                * الإعلان محفوظ لكنه غير مفعّل. فعّل المفتاح لإظهاره للمرضى.
+              </Text>
             )}
           </Section>
 
@@ -301,12 +320,31 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: Spacing.md,
     paddingVertical:   Spacing.sm,
+    flexDirection:     "row",
+    justifyContent:    "space-between",
+    alignItems:        "center",
   },
   title: {
     fontSize:   Typography.sizes["2xl"],
     fontWeight: "900",
     color:      Colors.text1,
     textAlign:  "right",
+    flex:       1,
+  },
+  headerSaveBtn: {
+    backgroundColor:  Colors.indigo,
+    borderRadius:     10,
+    paddingHorizontal: 16,
+    paddingVertical:   8,
+    minWidth:         64,
+    alignItems:       "center",
+  },
+  headerSaveBtnText: { color: "#fff", fontWeight: "800", fontSize: Typography.sizes.sm },
+  announcementHint: {
+    fontSize:  Typography.sizes.xs,
+    color:     Colors.amber,
+    textAlign: "right",
+    marginTop: 4,
   },
 
   section: {
