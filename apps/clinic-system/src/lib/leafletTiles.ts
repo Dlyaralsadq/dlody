@@ -45,8 +45,8 @@ const TILE_OPTS = {
   crossOrigin: "anonymous" as const,
 };
 
-/** OSM tile URL used as fallback when Google tiles fail on iOS/restricted networks. */
-const OSM_TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+/** Proxied OSM tiles — served from same origin, works in all WebView/Electron environments. */
+const OSM_TILE_URL = "/api/tiles/{z}/{x}/{y}.png";
 
 function attachTileFallback(
   layer: LeafletTileLayer,
@@ -111,17 +111,17 @@ export function createGoogleTileLayer(
   const lang = tileLang(locale);
   const ar = lang === "ar";
 
-  // OSM for the default roadmap style — works in browser, WebView, Electron
+  // Self-hosted OSM proxy — works everywhere (browser, WebView, Electron)
+  // Tiles are served from tabibee.com/api/tiles/z/x/y.png to avoid any
+  // cross-origin / User-Agent / CORS issues in WebView environments.
   if (style === "auto") {
     return L.tileLayer(
-      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      "/api/tiles/{z}/{x}/{y}.png",
       {
-        subdomains: "abc",
         maxZoom: 19,
         maxNativeZoom: 19,
         minZoom: 3,
         tileSize: 256,
-        // No crossOrigin — avoids CORS issues in Android WebView
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       }
     );
