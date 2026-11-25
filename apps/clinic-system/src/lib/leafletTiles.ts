@@ -111,7 +111,7 @@ export function createGoogleTileLayer(
   const lang = tileLang(locale);
   const ar = lang === "ar";
 
-  // OSM for the default roadmap style — no Referer/auth needed, works everywhere
+  // OSM for the default roadmap style — works in browser, WebView, Electron
   if (style === "auto") {
     return L.tileLayer(
       "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
@@ -121,10 +121,8 @@ export function createGoogleTileLayer(
         maxNativeZoom: 19,
         minZoom: 3,
         tileSize: 256,
-        crossOrigin: "anonymous" as const,
-        attribution: ar
-          ? '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        // No crossOrigin — avoids CORS issues in Android WebView
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       }
     );
   }
