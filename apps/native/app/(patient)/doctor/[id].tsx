@@ -8,7 +8,6 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
-import { API_BASE } from "@/api/client";
 import { useLocalSearchParams, router } from "expo-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
@@ -253,7 +252,7 @@ export default function DoctorProfileScreen() {
                 <View style={styles.miniMapContainer}>
                   <WebView
                     source={{
-                      uri: `${API_BASE}/api/mobile/map-page?lat=${doctor.clinicLat}&lng=${doctor.clinicLng}`,
+                      uri: `https://maps.google.com/maps?q=${doctor.clinicLat},${doctor.clinicLng}&z=16&hl=ar&output=embed`,
                     }}
                     style={styles.miniMap}
                     javaScriptEnabled

@@ -16,7 +16,7 @@ interface AdminPatient {
 export default function AdminPatientsScreen() {
   const { data, isLoading } = useQuery({
     queryKey: ["admin-patients"],
-    queryFn:  () => apiFetch<{ patients: AdminPatient[] }>("/api/mobile/admin/patients"),
+    queryFn:  () => apiFetch<{ patients: AdminPatient[] }>("/admin/patients"),
     staleTime: 60_000,
   });
 

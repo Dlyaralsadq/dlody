@@ -20,7 +20,7 @@ interface AdminDoctor {
 export default function AdminDoctorsScreen() {
   const { data, isLoading } = useQuery({
     queryKey: ["admin-doctors"],
-    queryFn:  () => apiFetch<{ doctors: AdminDoctor[] }>("/api/mobile/admin/doctors"),
+    queryFn:  () => apiFetch<{ doctors: AdminDoctor[] }>("/admin/doctors"),
     staleTime: 60_000,
   });
 

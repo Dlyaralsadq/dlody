@@ -2,13 +2,29 @@ import { useEffect } from "react";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, QueryCache } from "@tanstack/react-query";
+import { router } from "expo-router";
 import { useAuthStore } from "@/stores/auth";
+import { ApiError, clearToken } from "@/api/client";
 
 const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: (error) => {
+      if (error instanceof ApiError && error.status === 401) {
+        clearToken().then(() => {
+          useAuthStore.getState().logout();
+          router.replace("/(auth)/role-select");
+        });
+      }
+    },
+  }),
   defaultOptions: {
     queries: {
-      retry: 2,
+      retry: (failureCount, error) => {
+        // Don't retry on 401/403/404
+        if (error instanceof ApiError && [401, 403, 404].includes(error.status)) return false;
+        return failureCount < 2;
+      },
       staleTime: 30_000,
     },
   },
