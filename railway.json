@@ -1,6 +1,6 @@
 {
   "$schema": "https://railway.app/railway.schema.json",
-  "build": {
+  "_updated": "2026-11-25", "build": {
     "builder": "NIXPACKS",
     "buildCommand": "npm ci && npm run db:generate && npm run build -w @iraq-clinic/clinic-system"
   },
@@ -12,3 +12,4 @@
     "healthcheckTimeout": 30
   }
 }
+
