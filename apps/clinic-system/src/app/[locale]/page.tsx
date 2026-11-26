@@ -124,7 +124,7 @@ export default async function LocaleRootPage({
       {/* ════════════════════════════
           HERO
       ════════════════════════════ */}
-      <section className="relative min-h-screen flex flex-col items-center justify-center px-5 pt-24 pb-16 overflow-hidden">
+      <section className="relative min-h-screen flex flex-col items-center justify-center text-center px-5 pt-24 pb-16 overflow-hidden">
         {/* Background glows */}
         <div className="absolute inset-0 pointer-events-none" aria-hidden>
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-indigo-600/10 blur-[140px] rounded-full" />
@@ -219,7 +219,7 @@ export default async function LocaleRootPage({
         </p>
 
         {/* CTA Buttons */}
-        <div className="mt-10 flex flex-col sm:flex-row gap-4 w-full max-w-sm">
+        <div className="mt-10 flex flex-col sm:flex-row gap-4 w-full max-w-sm mx-auto">
           <Link
             href={`/${locale}/patient`}
             className="group flex flex-1 items-center justify-center gap-2.5 rounded-2xl py-4 text-base font-bold text-white transition-all duration-200 hover:opacity-90 hover:-translate-y-0.5 active:scale-98"
@@ -247,11 +247,11 @@ export default async function LocaleRootPage({
         </div>
 
         {/* Stats row */}
-        <div className="mt-14 grid grid-cols-3 gap-6 max-w-sm w-full">
+        <div className="mt-14 grid grid-cols-3 gap-6 max-w-sm w-full mx-auto">
           {[
-            { n: ar ? "+٥٠٠" : "500+", label: ar ? "طبيب" : "Doctors" },
-            { n: ar ? "١٥" : "15",     label: ar ? "محافظة" : "Governorates" },
-            { n: ar ? "٢٤/٧" : "24/7", label: ar ? "خدمة" : "Service" },
+            { n: ar ? "+٢٥٠٠" : "2500+", label: ar ? "طبيب" : "Doctors" },
+            { n: ar ? "١٨" : "18",        label: ar ? "محافظة" : "Governorates" },
+            { n: ar ? "٢٤/٧" : "24/7",   label: ar ? "خدمة" : "Service" },
           ].map(({ n, label }) => (
             <div key={label} className="flex flex-col items-center gap-1">
               <span className="text-2xl font-black text-white">{n}</span>
@@ -272,7 +272,7 @@ export default async function LocaleRootPage({
           FEATURES
       ════════════════════════════ */}
       <section className="px-5 py-20 max-w-6xl mx-auto">
-        <div className="text-center mb-14">
+        <div className="text-center mb-14 mx-auto">
           <p
             className="text-xs font-bold tracking-widest uppercase mb-3"
             style={{ color: "#6366f1" }}
@@ -328,7 +328,7 @@ export default async function LocaleRootPage({
         style={{ borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}
       >
         <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-14">
+          <div className="text-center mb-14 mx-auto">
             <p
               className="text-xs font-bold tracking-widest uppercase mb-3"
               style={{ color: "#22d3ee" }}
@@ -340,7 +340,7 @@ export default async function LocaleRootPage({
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 relative">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 relative place-items-center sm:place-items-start">
             {/* Connector line */}
             <div
               className="hidden sm:block absolute top-8 start-[18%] end-[18%] h-px"
@@ -494,7 +494,7 @@ export default async function LocaleRootPage({
           </p>
 
           {/* Final CTA */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mx-auto">
             <Link
               href={`/${locale}/patient`}
               className="inline-flex items-center justify-center gap-2 rounded-2xl px-8 py-4 text-base font-bold text-white transition hover:opacity-90 hover:-translate-y-0.5"
@@ -527,7 +527,7 @@ export default async function LocaleRootPage({
         className="px-5 py-6 text-center"
         style={{ borderTop: "1px solid var(--border)" }}
       >
-        <div className="flex flex-wrap items-center justify-center gap-4 mb-3">
+        <div className="flex flex-wrap items-center justify-center gap-4 mb-3 mx-auto">
           <Link href="/ar" className="text-xs hover:text-white transition" style={{ color: "var(--text-3)" }}>العربية</Link>
           <span style={{ color: "var(--border)" }}>·</span>
           <Link href="/en" className="text-xs hover:text-white transition" style={{ color: "var(--text-3)" }}>English</Link>
