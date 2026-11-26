@@ -1,58 +1,96 @@
-/**
- * Tile-layer helpers for Leaflet maps.
- *
- * All tiles proxied through /api/tiles — same-origin requests work in
- * every environment (browser, Android WebView, Electron).
- *
- * Provider: ESRI ArcGIS Living Atlas (free-to-use for public display)
- *   auto      → ESRI World Street Map   (Google-Maps quality road map)
- *   satellite → ESRI World Imagery      (high-res satellite photography)
- *   hybrid    → ESRI Imagery + ESRI Reference Overlay (labels)
- *   terrain   → ESRI World Topo Map     (topographic / hillshading)
- */
+/** Google Maps tiles. The previous frame stays on screen while the next zoom loads. */
 
 import type { TileLayer as LeafletTileLayer } from "leaflet";
 
 export type LeafletModule = typeof import("leaflet");
-export type LeafletMap   = import("leaflet").Map;
+export type LeafletMap = import("leaflet").Map;
 
+/** auto = roadmap with POIs | satellite | hybrid | terrain */
 export type MapDisplayStyle = "auto" | "satellite" | "hybrid" | "terrain";
 
+/** Google lyrs codes — roadmap (m) includes restaurants, mosques, hospitals, etc. */
+const GOOGLE_LYRS: Record<MapDisplayStyle, string> = {
+  auto: "m",
+  satellite: "s",
+  hybrid: "y",
+  terrain: "p",
+};
+
 const STYLE_CLASS: Record<MapDisplayStyle, string> = {
-  auto:      "map-style-auto",
+  auto: "map-style-auto",
   satellite: "map-style-satellite",
-  hybrid:    "map-style-hybrid",
-  terrain:   "map-style-terrain",
+  hybrid: "map-style-hybrid",
+  terrain: "map-style-terrain",
 };
 
-/** Loading background colour — matches each provider's paper colour so tiles
- *  never flash as a black square while loading. */
+/** Same paper color as Google Maps, so a tile that is still arriving is not a black square. */
 const STYLE_FILL: Record<MapDisplayStyle, string> = {
-  auto:      "#f5efdf",   // ESRI World Street Map warm cream
-  satellite: "#1e1a16",   // dark earth tone
-  hybrid:    "#1e1a16",
-  terrain:   "#f0ede6",   // ESRI Topo light parchment
+  auto: "#f2efe9",
+  satellite: "#8d8680",
+  hybrid: "#8d8680",
+  terrain: "#e4dcc4",
 };
 
-/** Performance options tuned for smooth mobile scrolling/zooming */
-const PERF_OPTS = {
-  maxZoom:           19,
-  maxNativeZoom:     19,
-  minZoom:           3,
-  tileSize:          256,
-  detectRetina:      false,
-  updateWhenIdle:    true,        // only load tiles after map stops
-  updateWhenZooming: false,       // no tile requests during zoom animation
-  updateInterval:    150,
-  keepBuffer:        6,
-  crossOrigin:       false as const,
-} as const;
+const TILE_OPTS = {
+  subdomains: "0123",
+  maxZoom: 21,
+  maxNativeZoom: 21,
+  minZoom: 3,
+  tileSize: 256,
+  detectRetina: false,
+  updateWhenIdle: false,
+  updateWhenZooming: false,
+  updateInterval: 40,
+  keepBuffer: 4,
+  crossOrigin: "anonymous" as const,
+};
 
-const PROXY = "/api/tiles";
+/** OSM tile URL used as fallback when Google tiles fail on iOS/restricted networks. */
+const OSM_TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+
+function attachTileFallback(
+  layer: LeafletTileLayer,
+  L: LeafletModule,
+  map: LeafletMap,
+  layersRef: LeafletTileLayer[]
+): void {
+  let failCount = 0;
+  let fallbackApplied = false;
+
+  layer.on("tileerror", () => {
+    if (fallbackApplied) return;
+    failCount++;
+    if (failCount >= 4) {
+      fallbackApplied = true;
+      const osmLayer = L.tileLayer(OSM_TILE_URL, {
+        subdomains: "abc",
+        maxZoom: 19,
+        maxNativeZoom: 19,
+        minZoom: 3,
+        tileSize: 256,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      });
+      osmLayer.addTo(map);
+      layersRef.forEach((old) => {
+        if (old !== osmLayer && map.hasLayer(old)) map.removeLayer(old);
+      });
+      // Replace the layers array contents in-place
+      layersRef.splice(0, layersRef.length, osmLayer);
+    }
+  });
+}
+
+function tileLang(locale: string): "ar" | "en" {
+  return isArabicLocale(locale) ? "ar" : "en";
+}
+
+function googleTileUrl(lyrs: string, lang: "ar" | "en"): string {
+  return `https://mt{s}.google.com/vt/lyrs=${lyrs}&hl=${lang}&gl=IQ&x={x}&y={y}&z={z}`;
+}
 
 function markMapStyle(map: LeafletMap, style: MapDisplayStyle) {
   const container = map.getContainer();
-  Object.values(STYLE_CLASS).forEach((c) => container.classList.remove(c));
+  Object.values(STYLE_CLASS).forEach((name) => container.classList.remove(name));
   container.classList.add(STYLE_CLASS[style]);
   container.style.setProperty("background", STYLE_FILL[style], "important");
 }
@@ -61,63 +99,25 @@ export function isArabicLocale(locale: string): boolean {
   return locale === "ar" || locale.startsWith("ar-");
 }
 
-/**
- * Returns one or two tile layers for the requested style.
- * "hybrid" returns [imagery, labels] — both layers are added to the map.
- */
-function createTileLayers(
+/** Create a Google Maps tile layer. The URL stays stable so the browser can keep tiles. */
+export function createGoogleTileLayer(
   L: LeafletModule,
-  _locale: string,
+  locale: string,
   style: MapDisplayStyle = "auto"
-): LeafletTileLayer[] {
+): LeafletTileLayer {
+  const lang = tileLang(locale);
+  const lyrs = GOOGLE_LYRS[style];
+  const ar = lang === "ar";
 
-  if (style === "satellite") {
-    return [
-      L.tileLayer(`${PROXY}/{z}/{x}/{y}.png?s=satellite`, {
-        ...PERF_OPTS,
-        attribution:
-          "Imagery &copy; <a href='https://www.esri.com'>Esri</a>, Maxar, Earthstar Geographics",
-      }),
-    ];
-  }
-
-  if (style === "hybrid") {
-    return [
-      // base: ESRI satellite imagery
-      L.tileLayer(`${PROXY}/{z}/{x}/{y}.png?s=satellite`, {
-        ...PERF_OPTS,
-        attribution: "Imagery &copy; Esri",
-      }),
-      // overlay: ESRI transparent road/city labels
-      L.tileLayer(`${PROXY}/{z}/{x}/{y}.png?s=labels`, {
-        ...PERF_OPTS,
-        opacity: 1,
-        pane: "overlayPane",
-      }),
-    ];
-  }
-
-  if (style === "terrain") {
-    return [
-      L.tileLayer(`${PROXY}/{z}/{x}/{y}.png?s=terrain`, {
-        ...PERF_OPTS,
-        attribution:
-          "Tiles &copy; <a href='https://www.esri.com'>Esri</a>, USGS, NOAA",
-      }),
-    ];
-  }
-
-  // Default "auto" — ESRI World Street Map (Google-Maps-quality road map, free)
-  return [
-    L.tileLayer(`${PROXY}/{z}/{x}/{y}.png`, {
-      ...PERF_OPTS,
-      attribution:
-        "Tiles &copy; <a href='https://www.esri.com'>Esri</a>, HERE, Garmin, FAO, NOAA",
-    }),
-  ];
+  return L.tileLayer(googleTileUrl(lyrs, lang), {
+    ...TILE_OPTS,
+    attribution: ar
+      ? '&copy; <a href="https://www.google.com/maps">خرائط Google</a>'
+      : '&copy; <a href="https://www.google.com/maps">Google Maps</a>',
+  });
 }
 
-/** Replace current tile layers with layers for the chosen style. */
+/** Replace the base map with a Google layer for the chosen style. */
 export function setMapDisplayStyle(
   map: LeafletMap,
   currentLayers: LeafletTileLayer[],
@@ -125,13 +125,15 @@ export function setMapDisplayStyle(
   locale: string,
   style: MapDisplayStyle
 ): LeafletTileLayer[] {
-  const newLayers = createTileLayers(L, locale, style);
-  newLayers.forEach((l) => l.addTo(map));
+  const layer = createGoogleTileLayer(L, locale, style);
+  layer.addTo(map);
   currentLayers.forEach((old) => {
-    if (!newLayers.includes(old) && map.hasLayer(old)) map.removeLayer(old);
+    if (old !== layer && map.hasLayer(old)) map.removeLayer(old);
   });
   markMapStyle(map, style);
-  return newLayers;
+  const layersArr = [layer];
+  attachTileFallback(layer, L, map, layersArr);
+  return layersArr;
 }
 
 export function applyHighQualityTiles(
@@ -143,44 +145,33 @@ export function applyHighQualityTiles(
   return setMapDisplayStyle(map, [], L, locale, style);
 }
 
-/** @deprecated use setMapDisplayStyle instead */
-export function createGoogleTileLayer(
-  L: LeafletModule,
-  locale: string,
-  style: MapDisplayStyle = "auto"
-): LeafletTileLayer {
-  return createTileLayers(L, locale, style)[0];
-}
-
-/** Leaflet map constructor defaults — tuned for smooth mobile panning. */
 export const MAP_DEFAULTS = {
-  maxZoom:             19,
-  minZoom:             3,
-  zoomSnap:            1,
-  zoomDelta:           1,
-  wheelPxPerZoomLevel: 60,
-  wheelDebounceTime:   40,
-  fadeAnimation:       true,
-  zoomAnimation:       true,
+  maxZoom: 21,
+  minZoom: 3,
+  zoomSnap: 0.5,
+  zoomDelta: 0.5,
+  wheelPxPerZoomLevel: 40,
+  wheelDebounceTime: 20,
+  fadeAnimation: false,
+  zoomAnimation: true,
   markerZoomAnimation: true,
-  inertia:             true,
-  inertiaDeceleration: 2000,
-  easeLinearity:       0.2,
-  preferCanvas:        true,
+  inertia: true,
+  inertiaDeceleration: 2200,
+  easeLinearity: 0.25,
 } as const;
 
 export const MAP_REFRESH_MS = 4_000;
 
 export function getMapPreconnectHosts(_locale = "ar"): string[] {
-  return ["https://server.arcgisonline.com"];
+  return [0, 1, 2, 3].map((n) => `https://mt${n}.google.com`);
 }
 
 export function getMapStyleLabel(style: MapDisplayStyle, ar: boolean): string {
   const labels: Record<MapDisplayStyle, { ar: string; en: string }> = {
-    auto:      { ar: "خرائط",     en: "Map"       },
+    auto: { ar: "خرائط", en: "Map" },
     satellite: { ar: "قمر صناعي", en: "Satellite" },
-    hybrid:    { ar: "هجين",      en: "Hybrid"    },
-    terrain:   { ar: "تضاريس",   en: "Terrain"   },
+    hybrid: { ar: "هجين", en: "Hybrid" },
+    terrain: { ar: "تضاريس", en: "Terrain" },
   };
   return ar ? labels[style].ar : labels[style].en;
 }

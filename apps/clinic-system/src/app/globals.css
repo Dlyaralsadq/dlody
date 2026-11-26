@@ -16,19 +16,18 @@ select option {
 }
 
 /* Leaflet map overrides.
-   Background colours match each tile provider's paper so loading tiles
+   Background colours match Google Maps paper so loading tiles
    never flash as a black square. */
 .leaflet-container {
-  /* Mapbox Streets warm white — matches map paper colour */
-  background: #f8f4f0 !important;
+  background: #f2efe9 !important;
   font-family: "Cairo", "Inter", sans-serif;
 }
 .leaflet-container.map-style-satellite,
 .leaflet-container.map-style-hybrid {
-  background: #1a1a1a !important;
+  background: #8d8680 !important;
 }
 .leaflet-container.map-style-terrain {
-  background: #eae6de !important;
+  background: #e4dcc4 !important;
 }
 .leaflet-tile {
   background: transparent;
