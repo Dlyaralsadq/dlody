@@ -2,15 +2,20 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
-import { Phone, Calendar, X, Navigation, MapPin, Clock, Banknote, Locate, Star, User, Rss } from "lucide-react";
+import {
+  Phone, Calendar, X, Navigation, MapPin, Clock,
+  Banknote, Locate, Star, User, Rss,
+} from "lucide-react";
 import { WORKING_DAYS_LABELS } from "@/lib/doctorDisplay";
 import DoctorAvatar from "@/components/ui/DoctorAvatar";
 import { DoctorRatingBadge } from "@/components/ui/DoctorRatingDisplay";
-import { applyHighQualityTiles, MAP_DEFAULTS, MAP_REFRESH_MS, setMapDisplayStyle, type MapDisplayStyle } from "@/lib/leafletTiles";
-import { loadLeafletMap } from "@/lib/leafletLoader";
 import { fetchMapDoctorPins } from "@/app/actions/patientMap";
 import { PATIENT_NAV_BOTTOM_OFFSET, PATIENT_NAV_LEGEND_OFFSET } from "@/lib/patientUi";
 import MapStyleSwitcher from "@/components/ui/MapStyleSwitcher";
+import type { MapDisplayStyle } from "@/lib/leafletTiles";
+import { MAP_REFRESH_MS } from "@/lib/leafletTiles";
+
+/* ─── Types ─────────────────────────────────────────────────────────────── */
 
 export interface FocusArea {
   lat: number;
@@ -20,9 +25,7 @@ export interface FocusArea {
   label?: string;
   govId?: string;
   districtId?: string;
-  /** Ordered place-name queries. The map draws an administrative polygon only. */
   searchQueries?: string[];
-  /** Names that must appear in the boundary's own title, not a parent area. */
   matchNames?: string[];
 }
 
@@ -54,8 +57,58 @@ export interface DoctorPin {
   hasActiveStory: boolean;
 }
 
-const IRAQ_CENTER: [number, number] = [33.2, 44.0];
+/* ─── Map style helpers ──────────────────────────────────────────────────── */
+
+const OFM_LIBERTY = "https://tiles.openfreemap.org/styles/liberty";
+const OFM_BRIGHT  = "https://tiles.openfreemap.org/styles/bright";
+
+function rasterStyle(tileUrl: string, attribution = ""): object {
+  return {
+    version: 8,
+    glyphs: "https://fonts.openmaptiles.org/{fontstack}/{range}.pbf",
+    sources: {
+      raster: {
+        type: "raster",
+        tiles: [tileUrl],
+        tileSize: 256,
+        attribution,
+        maxzoom: 19,
+      },
+    },
+    layers: [{ id: "raster-bg", type: "raster", source: "raster" }],
+  };
+}
+
+async function hybridStyle(origin: string): Promise<object> {
+  try {
+    const resp = await fetch(OFM_LIBERTY);
+    const style = await resp.json();
+    style.sources = {
+      __satellite: {
+        type: "raster",
+        tiles: [`${origin}/api/tiles/{z}/{x}/{y}.png?s=satellite`],
+        tileSize: 256,
+        maxzoom: 19,
+        attribution: "© Esri",
+      },
+      ...style.sources,
+    };
+    style.layers = [
+      { id: "__sat_bg", type: "raster", source: "__satellite", maxzoom: 24 },
+      ...style.layers,
+    ];
+    return style;
+  } catch {
+    return rasterStyle(`${origin}/api/tiles/{z}/{x}/{y}.png?s=satellite`, "© Esri");
+  }
+}
+
+/* ─── Constants ─────────────────────────────────────────────────────────── */
+
+const IRAQ_CENTER: [number, number] = [44.0, 33.2]; // [lng, lat] – MapLibre order
 const IRAQ_ZOOM = 6;
+
+/* ─── Component ─────────────────────────────────────────────────────────── */
 
 export default function PatientMapView({
   doctors: initialDoctors,
@@ -71,31 +124,27 @@ export default function PatientMapView({
   hasFilter?: boolean;
 }) {
   const ar = locale === "ar";
-  const mapRef = useRef<any>(null);
+  const mapRef       = useRef<any>(null);   // maplibregl.Map
+  const mlRef        = useRef<any>(null);   // maplibregl module
   const containerRef = useRef<HTMLDivElement>(null);
-  const markersRef = useRef<any[]>([]);
-  const areaCircleRef = useRef<any>(null);
+  const markersRef   = useRef<any[]>([]);   // maplibregl.Marker[]
   const userMarkerRef = useRef<any>(null);
-  const watchIdRef = useRef<number | null>(null);
+  const watchIdRef   = useRef<number | null>(null);
   const firstLocateRef = useRef(true);
-  const tileLayersRef = useRef<import("leaflet").TileLayer[]>([]);
-  const leafletRef = useRef<typeof import("leaflet") | null>(null);
+  const selectedIdRef = useRef<string | null>(null);
+  const markerKeyRef  = useRef("");
+  const boundaryRef   = useRef<{ geojson: object; label: string } | null>(null);
+  const styleLoadedRef = useRef(false);
+
   const [mapStyle, setMapStyle] = useState<MapDisplayStyle>("auto");
-  const [doctors, setDoctors] = useState(initialDoctors);
+  const [doctors, setDoctors]   = useState(initialDoctors);
   const [selected, setSelected] = useState<DoctorPin | null>(null);
   const [locating, setLocating] = useState(false);
-  const selectedIdRef = useRef<string | null>(null);
-  const markerKeyRef = useRef("");
 
-  useEffect(() => {
-    selectedIdRef.current = selected?.id ?? null;
-  }, [selected]);
+  useEffect(() => { selectedIdRef.current = selected?.id ?? null; }, [selected]);
+  useEffect(() => { setDoctors(initialDoctors); }, [initialDoctors]);
 
-  useEffect(() => {
-    setDoctors(initialDoctors);
-  }, [initialDoctors]);
-
-  // Auto-refresh doctor pins (only when at least one filter is active)
+  /* ── Auto-refresh pins ── */
   useEffect(() => {
     if (!mapFilters || !hasFilter) return;
     const refresh = async () => {
@@ -107,236 +156,265 @@ export default function PatientMapView({
           const updated = fresh.find((d) => d.id === id);
           if (updated) setSelected(updated);
         }
-      } catch {
-        // ignore transient errors
-      }
+      } catch { /* ignore */ }
     };
     const interval = setInterval(refresh, MAP_REFRESH_MS);
     return () => clearInterval(interval);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapFilters, hasFilter]);
 
-  // Build map once (guard against React Strict Mode double-mount)
+  /* ── Initialise MapLibre GL map ── */
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-
     let cancelled = false;
 
     (async () => {
-      const L = await loadLeafletMap();
-
+      const maplibregl = (await import("maplibre-gl")).default;
       if (cancelled || !containerRef.current || mapRef.current) return;
 
-      const el = containerRef.current;
-      if ((el as HTMLElement & { _leaflet_id?: number })._leaflet_id) return;
+      mlRef.current = maplibregl;
 
-      const map = L.map(el, {
+      const map = new maplibregl.Map({
+        container: containerRef.current,
+        style: OFM_LIBERTY,
         center: IRAQ_CENTER,
         zoom: IRAQ_ZOOM,
-        zoomControl: false,
+        maxZoom: 20,
+        minZoom: 3,
         attributionControl: true,
-        ...MAP_DEFAULTS,
+        pitchWithRotate: false,
+        dragRotate: false,
+        touchPitch: false,
+        keyboard: false,
+        fadeDuration: 300,
       });
 
-      tileLayersRef.current = applyHighQualityTiles(L, map, locale, mapStyle);
-      leafletRef.current = L;
+      map.addControl(
+        new maplibregl.NavigationControl({ showCompass: false }),
+        "bottom-right",
+      );
 
-      L.control.zoom({ position: "bottomright" }).addTo(map);
+      map.on("load", () => {
+        styleLoadedRef.current = true;
+        if (!cancelled) renderMarkers(maplibregl, map);
+      });
+
+      /* Re-add GeoJSON boundary after style change */
+      map.on("style.load", () => {
+        styleLoadedRef.current = true;
+        if (boundaryRef.current) {
+          addBoundaryLayer(map, boundaryRef.current.geojson, boundaryRef.current.label);
+        }
+      });
+
+      mapRef.current = map;
 
       if (cancelled) {
         map.remove();
-        return;
+        mapRef.current = null;
+        mlRef.current = null;
       }
-
-      mapRef.current = map;
-      map.whenReady(() => {
-        if (!cancelled) renderMarkers(L, map);
-      });
     })();
 
     return () => {
       cancelled = true;
-      markersRef.current.forEach((m) => m.remove());
+      markersRef.current.forEach((m) => m.remove?.());
       markersRef.current = [];
-      if (areaCircleRef.current) {
-        areaCircleRef.current.remove();
-        areaCircleRef.current = null;
+      if (watchIdRef.current != null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
       }
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
-      tileLayersRef.current = [];
-      leafletRef.current = null;
+      mapRef.current?.remove();
+      mapRef.current = null;
+      mlRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locale]);
 
+  /* ── Style switching ── */
   useEffect(() => {
     const map = mapRef.current;
-    const L = leafletRef.current;
-    if (!map || !L) return;
-    tileLayersRef.current = setMapDisplayStyle(
-      map,
-      tileLayersRef.current,
-      L,
-      locale,
-      mapStyle
-    );
-  }, [mapStyle, locale]);
+    if (!map) return;
+    styleLoadedRef.current = false;
 
-  // Re-render markers only when a pin actually changed, so the refresh stays smooth.
+    (async () => {
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      if (mapStyle === "auto") {
+        map.setStyle(OFM_LIBERTY);
+      } else if (mapStyle === "terrain") {
+        map.setStyle(OFM_BRIGHT);
+      } else if (mapStyle === "satellite") {
+        map.setStyle(rasterStyle(
+          `${origin}/api/tiles/{z}/{x}/{y}.png?s=satellite`,
+          "© Esri World Imagery",
+        ) as any);
+      } else if (mapStyle === "hybrid") {
+        map.setStyle((await hybridStyle(origin)) as any);
+      }
+    })();
+  }, [mapStyle]);
+
+  /* ── Re-render markers when doctor list changes ── */
   useEffect(() => {
-    if (!mapRef.current) return;
+    const map = mapRef.current;
+    const ml = mlRef.current;
+    if (!map || !ml) return;
     const key = doctors
       .map((d) => `${d.id}|${d.lat ?? ""}|${d.lng ?? ""}|${d.logoUrl ?? ""}|${d.specialtyIcon}|${d.hasActiveStory ? 1 : 0}`)
       .join(";");
     if (key === markerKeyRef.current) return;
     markerKeyRef.current = key;
-    import("leaflet").then((L: any) => {
-      if (!mapRef.current) return;
-      renderMarkers(L, mapRef.current);
-    });
+    renderMarkers(ml, map);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doctors]);
 
-  // Fly to focusArea and draw real GeoJSON boundary from Nominatim
+  /* ── Focus area: fly + draw boundary ── */
   useEffect(() => {
-    if (!mapRef.current || !focusArea) return;
     const map = mapRef.current;
+    if (!map || !focusArea) return;
     let cancelled = false;
 
-    // Remove previous boundary layer
-    if (areaCircleRef.current) {
-      areaCircleRef.current.remove?.();
-      areaCircleRef.current = null;
-    }
+    // Clear previous boundary
+    removeBoundaryLayer(map);
+    boundaryRef.current = null;
 
-    // Fly to center immediately for instant feedback
-    map.flyTo([focusArea.lat, focusArea.lng], focusArea.zoom, {
-      animate: true,
-      duration: 1.0,
+    map.flyTo({
+      center: [focusArea.lng, focusArea.lat],
+      zoom: focusArea.zoom,
+      essential: true,
+      duration: 1200,
     });
 
     const queries = focusArea.searchQueries?.filter(Boolean) ?? [];
     if (queries.length === 0) return;
 
-    const renderGeoJSON = async (geojson: object) => {
-      const L = await import("leaflet" as any);
-      if (cancelled || !mapRef.current) return;
-
-      const geoLayer = (L as any).geoJSON(geojson, {
-        style: {
-          color: "#6366f1",
-          weight: 2.5,
-          opacity: 0.95,
-          fillColor: "#818cf8",
-          fillOpacity: 0.10,
-          dashArray: "6 4",
-        },
-      }).addTo(map);
-
-      const bounds = geoLayer.getBounds();
-      if (bounds.isValid()) {
-        map.fitBounds(bounds, { padding: [40, 40], animate: true, duration: 1.0, maxZoom: 14 });
-      }
-
-      if (focusArea!.label) {
-        geoLayer.bindTooltip(focusArea!.label, {
-          permanent: true,
-          direction: "center",
-          className: "district-tooltip",
-        }).openTooltip();
-      }
-
-      areaCircleRef.current = geoLayer;
-    };
-
-    const fetchBoundary = async () => {
+    (async () => {
       try {
         const res = await fetch("/api/area-boundary", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            govId: focusArea!.govId,
-            districtId: focusArea!.districtId,
+            govId: focusArea.govId,
+            districtId: focusArea.districtId,
             queries,
-            match: focusArea!.matchNames ?? [],
+            match: focusArea.matchNames ?? [],
           }),
         });
         if (!res.ok || cancelled) return;
-        const data = (await res.json()) as { geojson?: object | null };
+        const data = await res.json() as { geojson?: object | null };
         if (cancelled || !data.geojson) return;
-        await renderGeoJSON(data.geojson);
-      } catch {
-        // No outline when the boundary service is unavailable. Never draw a circle.
-      }
-    };
 
-    fetchBoundary();
+        boundaryRef.current = { geojson: data.geojson, label: focusArea.label ?? "" };
+        if (styleLoadedRef.current) {
+          addBoundaryLayer(map, data.geojson, focusArea.label ?? "");
+        }
+      } catch { /* no outline available */ }
+    })();
+
     return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusArea?.govId, focusArea?.districtId, focusArea?.searchQueries?.join("|"), focusArea?.matchNames?.join("|"), focusArea?.lat, focusArea?.lng, focusArea?.zoom]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    focusArea?.govId, focusArea?.districtId,
+    focusArea?.searchQueries?.join("|"), focusArea?.matchNames?.join("|"),
+    focusArea?.lat, focusArea?.lng, focusArea?.zoom,
+  ]);
 
-  function renderMarkers(L: any, map: any) {
+  /* ─── Helpers ────────────────────────────────────────────────────────── */
+
+  function renderMarkers(ml: any, map: any) {
+    markersRef.current.forEach((m) => m.remove());
+    markersRef.current = [];
+
     markerKeyRef.current = doctors
       .map((d) => `${d.id}|${d.lat ?? ""}|${d.lng ?? ""}|${d.logoUrl ?? ""}|${d.specialtyIcon}|${d.hasActiveStory ? 1 : 0}`)
       .join(";");
-    markersRef.current.forEach((m) => m.remove());
-    markersRef.current = [];
 
     doctors.forEach((doc) => {
       const lat = doc.lat ?? doc.govLat;
       const lng = doc.lng ?? doc.govLng;
-      const exact = doc.lat !== null && doc.lng !== null;
+      const exact = doc.lat !== null;
 
-      const markerInner = doc.logoUrl
+      const inner = doc.logoUrl
         ? `<img src="${doc.logoUrl.replace(/"/g, "&quot;")}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="" />`
         : doc.specialtyIcon;
 
-      const icon = L.divIcon({
-        className: "",
-        html: `
-          <div style="
-            position:relative;
-            display:flex;
-            flex-direction:column;
-            align-items:center;
-            cursor:pointer;
-          ">
-            <div style="
-              background:${exact ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : "linear-gradient(135deg,#475569,#64748b)"};
-              border:2px solid ${exact ? "#818cf8" : "#94a3b8"};
-              border-radius:50%;
-              width:38px;height:38px;
-              display:flex;align-items:center;justify-content:center;
-              font-size:18px;
-              overflow:hidden;
-              box-shadow:0 2px 12px rgba(99,102,241,0.5);
-            ">${markerInner}</div>
-            <div style="
-              width:0;height:0;
-              border-left:6px solid transparent;
-              border-right:6px solid transparent;
-              border-top:8px solid ${exact ? "#6366f1" : "#475569"};
-              margin-top:-1px;
-            "></div>
-          </div>`,
-        iconSize: [38, 48],
-        iconAnchor: [19, 48],
-        popupAnchor: [0, -50],
+      const el = document.createElement("div");
+      el.style.cssText = "cursor:pointer;display:flex;flex-direction:column;align-items:center;";
+      el.innerHTML = `
+        <div style="
+          background:${exact ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : "linear-gradient(135deg,#475569,#64748b)"};
+          border:2px solid ${exact ? "#818cf8" : "#94a3b8"};
+          border-radius:50%;width:38px;height:38px;
+          display:flex;align-items:center;justify-content:center;
+          font-size:18px;overflow:hidden;
+          box-shadow:0 2px 12px rgba(99,102,241,0.5);
+        ">${inner}</div>
+        <div style="
+          width:0;height:0;
+          border-left:6px solid transparent;border-right:6px solid transparent;
+          border-top:8px solid ${exact ? "#6366f1" : "#475569"};margin-top:-1px;
+        "></div>`;
+
+      el.addEventListener("click", () => {
+        setSelected(doc);
+        mapRef.current?.flyTo({ center: [lng, lat], essential: true });
       });
 
-      const marker = L.marker([lat, lng], { icon });
-      marker.on("click", () => {
-        setSelected(doc);
-        map.panTo([lat, lng], { animate: true });
-      });
-      marker.addTo(map);
+      const marker = new ml.Marker({ element: el, anchor: "bottom" })
+        .setLngLat([lng, lat])
+        .addTo(map);
+
       markersRef.current.push(marker);
     });
   }
+
+  function addBoundaryLayer(map: any, geojson: object, label: string) {
+    removeBoundaryLayer(map);
+    try {
+      map.addSource("__area_boundary", { type: "geojson", data: geojson });
+      map.addLayer({
+        id: "__area_fill",
+        type: "fill",
+        source: "__area_boundary",
+        paint: { "fill-color": "#818cf8", "fill-opacity": 0.1 },
+      });
+      map.addLayer({
+        id: "__area_line",
+        type: "line",
+        source: "__area_boundary",
+        paint: {
+          "line-color": "#6366f1",
+          "line-width": 2.5,
+          "line-dasharray": [3, 2],
+          "line-opacity": 0.9,
+        },
+      });
+      if (label) {
+        map.addLayer({
+          id: "__area_label",
+          type: "symbol",
+          source: "__area_boundary",
+          layout: {
+            "text-field": label,
+            "text-font": ["Noto Sans Regular"],
+            "text-size": 13,
+            "text-allow-overlap": true,
+            "symbol-placement": "line-center",
+          },
+          paint: { "text-color": "#818cf8", "text-halo-color": "#0c1121", "text-halo-width": 2 },
+        });
+      }
+    } catch { /* already exists or style not ready */ }
+  }
+
+  function removeBoundaryLayer(map: any) {
+    ["__area_label", "__area_fill", "__area_line"].forEach((id) => {
+      try { if (map.getLayer(id)) map.removeLayer(id); } catch { /* ignore */ }
+    });
+    try { if (map.getSource("__area_boundary")) map.removeSource("__area_boundary"); } catch { /* ignore */ }
+  }
+
+  /* ─── Locate me ─────────────────────────────────────────────────────── */
 
   const locateMe = useCallback(() => {
     if (!navigator.geolocation) return;
@@ -348,54 +426,56 @@ export default function PatientMapView({
       watchIdRef.current = null;
     }
 
-    const updatePosition = (pos: GeolocationPosition) => {
-      const latlng: [number, number] = [pos.coords.latitude, pos.coords.longitude];
-      setLocating(false);
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      (pos) => {
+        const latlng: [number, number] = [pos.coords.longitude, pos.coords.latitude];
+        setLocating(false);
+        const map = mapRef.current;
+        const ml = mlRef.current;
+        if (!map || !ml) return;
 
-      if (mapRef.current) {
         if (firstLocateRef.current) {
-          mapRef.current.flyTo(latlng, 15, { animate: true, duration: 1.2 });
+          map.flyTo({ center: latlng, zoom: 15, essential: true, duration: 1200 });
           firstLocateRef.current = false;
         }
-        import("leaflet").then((L: any) => {
-          if (userMarkerRef.current) {
-            userMarkerRef.current.setLatLng(latlng);
-          } else {
-            userMarkerRef.current = L.circleMarker(latlng, {
-              radius: 10,
-              fillColor: "#22d3ee",
-              fillOpacity: 0.85,
-              color: "#fff",
-              weight: 2,
-            })
-              .addTo(mapRef.current)
-              .bindPopup(ar ? "موقعك الحالي" : "Your location");
-          }
-        });
-      }
-    };
 
-    watchIdRef.current = navigator.geolocation.watchPosition(
-      updatePosition,
+        if (userMarkerRef.current) {
+          userMarkerRef.current.setLngLat(latlng);
+        } else {
+          const el = document.createElement("div");
+          el.style.cssText = `
+            width:18px;height:18px;border-radius:50%;
+            background:#22d3ee;border:3px solid #fff;
+            box-shadow:0 0 0 4px rgba(34,211,238,0.3);
+          `;
+          userMarkerRef.current = new ml.Marker({ element: el })
+            .setLngLat(latlng)
+            .addTo(map);
+        }
+      },
       () => setLocating(false),
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
     );
-  }, [ar]);
+  }, []);
 
   useEffect(() => {
     return () => {
-      if (watchIdRef.current != null) {
+      if (watchIdRef.current != null)
         navigator.geolocation.clearWatch(watchIdRef.current);
-      }
     };
   }, []);
 
+  /* ─── Fly to doctor ─────────────────────────────────────────────────── */
+
   const flyToDoctor = useCallback((doc: DoctorPin) => {
-    if (!mapRef.current) return;
+    const map = mapRef.current;
+    if (!map) return;
     const lat = doc.lat ?? doc.govLat;
     const lng = doc.lng ?? doc.govLng;
-    mapRef.current.flyTo([lat, lng], doc.lat ? 16 : 10, { animate: true, duration: 1 });
+    map.flyTo({ center: [lng, lat], zoom: doc.lat ? 16 : 10, essential: true, duration: 1000 });
   }, []);
+
+  /* ─── Info panel data ───────────────────────────────────────────────── */
 
   const hours =
     selected?.workingHoursStart && selected?.workingHoursEnd
@@ -411,19 +491,18 @@ export default function PatientMapView({
     ? (ar ? (selected.bioAr ?? selected.bio) : (selected.bio ?? selected.bioAr))
     : null;
 
+  /* ─── Render ────────────────────────────────────────────────────────── */
+
   return (
     <div className="relative w-full h-full">
       {/* Map container */}
       <div ref={containerRef} className="w-full h-full" />
 
-      {/* ── No-filter hint overlay ── */}
+      {/* No-filter hint */}
       {!hasFilter && (
         <div
           className="absolute inset-x-0 z-[1001] flex flex-col items-center justify-center gap-3 pointer-events-none"
-          style={{
-            top: "50%",
-            transform: "translateY(-50%)",
-          }}
+          style={{ top: "50%", transform: "translateY(-50%)" }}
         >
           <div
             className="mx-4 flex flex-col items-center gap-3 rounded-2xl px-5 py-4 text-center pointer-events-none"
@@ -457,18 +536,29 @@ export default function PatientMapView({
 
       {/* Live refresh indicator */}
       {mapFilters && hasFilter && (
-        <div className="absolute top-4 end-4 z-[1000] flex items-center gap-1.5 rounded-xl backdrop-blur px-2.5 py-1.5 text-[10px]" style={{ border: "1px solid var(--border)", background: "color-mix(in srgb, var(--bg-root) 90%, transparent)", color: "var(--text-3)" }}>
+        <div
+          className="absolute top-4 end-4 z-[1000] flex items-center gap-1.5 rounded-xl backdrop-blur px-2.5 py-1.5 text-[10px]"
+          style={{
+            border: "1px solid var(--border)",
+            background: "color-mix(in srgb, var(--bg-root) 90%, transparent)",
+            color: "var(--text-3)",
+          }}
+        >
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
           {ar ? "تحديث مباشر" : "Live"}
         </div>
       )}
 
-      {/* Locate me button */}
+      {/* Locate me */}
       <button
         onClick={locateMe}
         disabled={locating}
         className="absolute top-4 start-4 z-[1000] flex items-center gap-2 rounded-xl backdrop-blur px-3 py-2.5 text-xs font-semibold shadow-lg hover:bg-indigo-600/80 transition disabled:opacity-60"
-        style={{ border: "1px solid var(--border)", background: "color-mix(in srgb, var(--bg-root) 90%, transparent)", color: "var(--text-1)" }}
+        style={{
+          border: "1px solid var(--border)",
+          background: "color-mix(in srgb, var(--bg-root) 90%, transparent)",
+          color: "var(--text-1)",
+        }}
       >
         {locating ? (
           <span className="h-3.5 w-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
@@ -487,7 +577,14 @@ export default function PatientMapView({
       />
 
       {/* Legend */}
-      <div className={`absolute start-3 z-[999] rounded-xl backdrop-blur p-2.5 text-[10px] space-y-1.5 ${PATIENT_NAV_LEGEND_OFFSET}`} style={{ border: "1px solid var(--border)", background: "color-mix(in srgb, var(--bg-root) 88%, transparent)", color: "var(--text-3)" }}>
+      <div
+        className={`absolute start-3 z-[999] rounded-xl backdrop-blur p-2.5 text-[10px] space-y-1.5 ${PATIENT_NAV_LEGEND_OFFSET}`}
+        style={{
+          border: "1px solid var(--border)",
+          background: "color-mix(in srgb, var(--bg-root) 88%, transparent)",
+          color: "var(--text-3)",
+        }}
+      >
         <div className="flex items-center gap-1.5">
           <span className="inline-block h-3 w-3 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 border border-indigo-400/50" />
           {ar ? "موقع دقيق" : "Exact location"}
@@ -498,15 +595,13 @@ export default function PatientMapView({
         </div>
       </div>
 
-      {/* Doctor info panel — slides up from bottom */}
+      {/* Doctor info panel */}
       {selected && (
         <div className={`absolute inset-x-0 z-[1000] animate-slide-up max-h-[calc(85vh-4rem)] overflow-y-auto ${PATIENT_NAV_BOTTOM_OFFSET}`}>
           <div className="mx-auto max-w-lg">
             <div className="rounded-t-3xl border-t border-x border-white/10 bg-[#0c1121]/98 backdrop-blur-md p-5 pb-6">
-              {/* Handle bar */}
               <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-white/20" />
 
-              {/* Header */}
               <div className="flex items-start justify-between gap-3 mb-4">
                 <div className="flex items-start gap-3 flex-1 min-w-0">
                   <DoctorAvatar
@@ -536,7 +631,7 @@ export default function PatientMapView({
                         {selected.experienceYears} {ar ? "سنة خبرة" : "years experience"}
                       </p>
                     )}
-                    {(selected.lat === null) && (
+                    {selected.lat === null && (
                       <p className="text-[10px] text-amber-400/70 mt-0.5">
                         {ar ? "الموقع تقريبي — مركز المحافظة" : "Approximate location — governorate center"}
                       </p>
@@ -551,7 +646,6 @@ export default function PatientMapView({
                 </button>
               </div>
 
-              {/* Bio */}
               {bioText && (
                 <div className="mb-4 rounded-xl bg-white/4 border border-white/6 px-3 py-3">
                   <p className="text-[10px] text-white/30 mb-1">{ar ? "نبذة تعريفية" : "About"}</p>
@@ -559,7 +653,6 @@ export default function PatientMapView({
                 </div>
               )}
 
-              {/* Info grid */}
               <div className="space-y-2 mb-4">
                 {selected.clinicAddress && (
                   <div className="flex items-start gap-2 rounded-xl bg-white/5 px-3 py-2.5">
@@ -595,7 +688,6 @@ export default function PatientMapView({
                 </div>
               </div>
 
-              {/* Action buttons */}
               <div className="grid grid-cols-2 gap-2">
                 <Link
                   href={`/${locale}/patient/doctor/${selected.id}?tab=info`}
@@ -621,9 +713,7 @@ export default function PatientMapView({
                     <Phone size={14} />
                     {ar ? "اتصل" : "Call"}
                   </a>
-                ) : (
-                  <div />
-                )}
+                ) : <div />}
                 <Link
                   href={`/${locale}/patient/book/${selected.id}`}
                   className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-950/50 hover:opacity-90 transition"

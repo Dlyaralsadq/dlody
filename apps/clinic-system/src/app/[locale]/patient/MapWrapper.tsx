@@ -1,15 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
 import dynamic from "next/dynamic";
-import { preloadLeaflet, preloadMapTileHosts } from "@/lib/leafletLoader";
 import type { DoctorPin, FocusArea } from "./PatientMapView";
 
-if (typeof window !== "undefined") {
-  preloadMapTileHosts("ar");
-  void preloadLeaflet();
-}
-
+/** Lazily load the GL map so maplibre-gl only ships to browsers that need it */
 const PatientMapView = dynamic(() => import("./PatientMapView"), {
   ssr: false,
   loading: () => (
@@ -30,11 +24,6 @@ export default function MapWrapper({
   mapFilters?: { specialty?: string; gov?: string; district?: string; q?: string };
   hasFilter?: boolean;
 }) {
-  useEffect(() => {
-    preloadMapTileHosts(locale);
-    void preloadLeaflet();
-  }, [locale]);
-
   return (
     <PatientMapView
       doctors={doctors}
