@@ -82,7 +82,7 @@ if (isProd) {
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
-  transpilePackages: ["@iraq-clinic/database", "maplibre-gl"],
+  transpilePackages: ["@iraq-clinic/database"],
   allowedDevOrigins: getDevOrigins(),
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];

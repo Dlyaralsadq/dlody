@@ -1,16 +1,14 @@
 /**
  * Tile-layer helpers for Leaflet maps.
  *
- * All tiles are proxied through /api/tiles (same-origin) so they work in
- * every environment: browser, Android WebView, Electron.
+ * All tiles proxied through /api/tiles — same-origin requests work in
+ * every environment (browser, Android WebView, Electron).
  *
- * Provider: Mapbox (world-class quality, free up to 50k loads/month)
- *   auto      → Mapbox Streets v12          — full POIs, buildings, Arabic labels
- *   satellite → Mapbox Satellite v9         — high-res satellite imagery
- *   hybrid    → Mapbox Satellite Streets v12 — satellite + ALL labels & POIs
- *   terrain   → Mapbox Outdoors v12         — terrain / topographic style
- *
- * Falls back to OSM/ESRI if MAPBOX_TOKEN env var is not set.
+ * Provider: ESRI ArcGIS Living Atlas (free-to-use for public display)
+ *   auto      → ESRI World Street Map   (Google-Maps quality road map)
+ *   satellite → ESRI World Imagery      (high-res satellite photography)
+ *   hybrid    → ESRI Imagery + ESRI Reference Overlay (labels)
+ *   terrain   → ESRI World Topo Map     (topographic / hillshading)
  */
 
 import type { TileLayer as LeafletTileLayer } from "leaflet";
@@ -27,26 +25,27 @@ const STYLE_CLASS: Record<MapDisplayStyle, string> = {
   terrain:   "map-style-terrain",
 };
 
-/** Loading background colour while first tiles arrive */
+/** Loading background colour — matches each provider's paper colour so tiles
+ *  never flash as a black square while loading. */
 const STYLE_FILL: Record<MapDisplayStyle, string> = {
-  auto:      "#f8f4f0",   // Mapbox Streets warm white
-  satellite: "#1a1a1a",   // dark while satellite loads
-  hybrid:    "#1a1a1a",
-  terrain:   "#eae6de",   // Mapbox Outdoors light
+  auto:      "#f5efdf",   // ESRI World Street Map warm cream
+  satellite: "#1e1a16",   // dark earth tone
+  hybrid:    "#1e1a16",
+  terrain:   "#f0ede6",   // ESRI Topo light parchment
 };
 
-/** Performance options — tuned for smooth mobile panning & zooming */
+/** Performance options tuned for smooth mobile scrolling/zooming */
 const PERF_OPTS = {
-  maxZoom:            22,   // Mapbox supports zoom 22 (building-level detail)
-  maxNativeZoom:      20,   // native tiles up to zoom 20
-  minZoom:            3,
-  tileSize:           256,
-  detectRetina:       false,
-  updateWhenIdle:     true,
-  updateWhenZooming:  false,
-  updateInterval:     150,
-  keepBuffer:         6,
-  crossOrigin:        false as const,
+  maxZoom:           19,
+  maxNativeZoom:     19,
+  minZoom:           3,
+  tileSize:          256,
+  detectRetina:      false,
+  updateWhenIdle:    true,        // only load tiles after map stops
+  updateWhenZooming: false,       // no tile requests during zoom animation
+  updateInterval:    150,
+  keepBuffer:        6,
+  crossOrigin:       false as const,
 } as const;
 
 const PROXY = "/api/tiles";
@@ -63,8 +62,8 @@ export function isArabicLocale(locale: string): boolean {
 }
 
 /**
- * Returns one tile layer for the requested style.
- * All 4 styles are powered by Mapbox (via proxy) — world-class quality.
+ * Returns one or two tile layers for the requested style.
+ * "hybrid" returns [imagery, labels] — both layers are added to the map.
  */
 function createTileLayers(
   L: LeafletModule,
@@ -72,26 +71,28 @@ function createTileLayers(
   style: MapDisplayStyle = "auto"
 ): LeafletTileLayer[] {
 
-  const attribution =
-    '&copy; <a href="https://www.mapbox.com/about/maps/">Mapbox</a> ' +
-    '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
-
   if (style === "satellite") {
     return [
       L.tileLayer(`${PROXY}/{z}/{x}/{y}.png?s=satellite`, {
         ...PERF_OPTS,
-        attribution,
+        attribution:
+          "Imagery &copy; <a href='https://www.esri.com'>Esri</a>, Maxar, Earthstar Geographics",
       }),
     ];
   }
 
   if (style === "hybrid") {
-    // Mapbox Satellite Streets — single layer with satellite imagery + full POI labels
-    // This is better than a 2-layer composite: sharper, faster, more consistent
     return [
-      L.tileLayer(`${PROXY}/{z}/{x}/{y}.png?s=hybrid`, {
+      // base: ESRI satellite imagery
+      L.tileLayer(`${PROXY}/{z}/{x}/{y}.png?s=satellite`, {
         ...PERF_OPTS,
-        attribution,
+        attribution: "Imagery &copy; Esri",
+      }),
+      // overlay: ESRI transparent road/city labels
+      L.tileLayer(`${PROXY}/{z}/{x}/{y}.png?s=labels`, {
+        ...PERF_OPTS,
+        opacity: 1,
+        pane: "overlayPane",
       }),
     ];
   }
@@ -100,18 +101,18 @@ function createTileLayers(
     return [
       L.tileLayer(`${PROXY}/{z}/{x}/{y}.png?s=terrain`, {
         ...PERF_OPTS,
-        attribution,
+        attribution:
+          "Tiles &copy; <a href='https://www.esri.com'>Esri</a>, USGS, NOAA",
       }),
     ];
   }
 
-  // Default "auto" — Mapbox Streets v12
-  // Shows: roads, buildings (zoom 15+), all POIs (zoom 15+),
-  // Arabic / English labels, parks, water bodies, landmarks
+  // Default "auto" — ESRI World Street Map (Google-Maps-quality road map, free)
   return [
     L.tileLayer(`${PROXY}/{z}/{x}/{y}.png`, {
       ...PERF_OPTS,
-      attribution,
+      attribution:
+        "Tiles &copy; <a href='https://www.esri.com'>Esri</a>, HERE, Garmin, FAO, NOAA",
     }),
   ];
 }
@@ -151,9 +152,9 @@ export function createGoogleTileLayer(
   return createTileLayers(L, locale, style)[0];
 }
 
-/** Leaflet map constructor defaults */
+/** Leaflet map constructor defaults — tuned for smooth mobile panning. */
 export const MAP_DEFAULTS = {
-  maxZoom:             22,
+  maxZoom:             19,
   minZoom:             3,
   zoomSnap:            1,
   zoomDelta:           1,
@@ -171,7 +172,7 @@ export const MAP_DEFAULTS = {
 export const MAP_REFRESH_MS = 4_000;
 
 export function getMapPreconnectHosts(_locale = "ar"): string[] {
-  return ["https://api.mapbox.com"];
+  return ["https://server.arcgisonline.com"];
 }
 
 export function getMapStyleLabel(style: MapDisplayStyle, ar: boolean): string {

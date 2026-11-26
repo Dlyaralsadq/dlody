@@ -1,16 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 
 /**
- * Universal tile proxy — routes all map requests through tabibee.com.
- * Works in WebView, Electron, and browser with no CORS issues.
- * Mapbox token stays server-side (never exposed to client).
+ * Universal tile proxy — all requests go through tabibee.com so WebView / Electron
+ * never makes cross-origin image requests.
+ *
+ * All ESRI services are free-to-use for public display (ArcGIS Living Atlas ToS).
+ * ESRI tile URLs use {z}/{y}/{x} order (row/column reversed vs Leaflet standard).
+ *
+ * Leaflet sends:  /api/tiles/{z}/{x}/{y}.png[?s=style]
+ * Proxy extracts: z=zoom, x=col, y=row
+ * ESRI needs:     tile/{z}/{row}/{col}  =  tile/{z}/{y}/{x}
  *
  * Styles:
- *   (default)   → Mapbox Streets v12   — world-class road map with full POIs & buildings
- *   satellite   → Mapbox Satellite v9  — pure satellite imagery
- *   hybrid      → Mapbox Satellite Streets v12 — best hybrid (satellite + labels + POIs)
- *   terrain     → Mapbox Outdoors v12  — terrain / topographic style
- *   osm         → OpenStreetMap        — fallback if Mapbox token missing
+ *   (none / ?s=auto)   → ESRI World Street Map  (modern, Google-Maps-like)
+ *   ?s=satellite       → ESRI World Imagery      (satellite photography)
+ *   ?s=terrain         → ESRI World Topo Map     (topographic + hillshading)
+ *   ?s=labels          → ESRI Reference Overlay  (road/city labels for hybrid)
+ *   ?s=osm             → OpenStreetMap            (fallback road map)
  */
 export async function GET(
   req: NextRequest,
@@ -26,54 +32,83 @@ export async function GET(
   const y = yPng?.replace(/\.png$/i, "");
   const style = req.nextUrl.searchParams.get("s") ?? "auto";
 
+  // Validate numeric to prevent SSRF
   if (!/^\d+$/.test(z) || !/^\d+$/.test(x) || !/^\d+$/.test(y)) {
     return new NextResponse("Bad request", { status: 400 });
   }
   const zoom = parseInt(z, 10);
-  if (zoom < 0 || zoom > 22) {
+  if (zoom < 0 || zoom > 21) {
     return new NextResponse("Bad request", { status: 400 });
   }
 
-  const MAPBOX_TOKEN = process.env.MAPBOX_TOKEN;
-
-  // If no Mapbox token → fall back to OSM for road map / ESRI for others
-  if (!MAPBOX_TOKEN) {
-    return serveFallback(style, z, x, y);
-  }
-
-  // Mapbox style → style ID mapping
-  const mapboxStyleId: Record<string, string> = {
-    auto:      "mapbox/streets-v12",
-    satellite: "mapbox/satellite-v9",
-    hybrid:    "mapbox/satellite-streets-v12",
-    terrain:   "mapbox/outdoors-v12",
+  const esriHeaders = {
+    "User-Agent":
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "Accept": "image/webp,image/png,image/jpeg,image/*",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Referer": "https://www.arcgis.com/",
   };
 
-  const styleId = mapboxStyleId[style] ?? mapboxStyleId.auto;
+  let upstreamUrl: string;
 
-  // Mapbox raster tile URL — 256px tiles work with Leaflet
-  // High-DPI (@2x) tiles look sharper on retina screens
-  const upstreamUrl =
-    `https://api.mapbox.com/styles/v1/${styleId}/tiles/256/${z}/${x}/${y}` +
-    `?access_token=${MAPBOX_TOKEN}`;
+  switch (style) {
+    case "satellite":
+      // ESRI World Imagery — highest quality free satellite tiles
+      upstreamUrl = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`;
+      break;
+
+    case "terrain":
+      // ESRI World Topo Map — topographic with hillshading
+      upstreamUrl = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/${z}/${y}/${x}`;
+      break;
+
+    case "labels":
+      // ESRI World Reference Overlay — transparent labels for hybrid mode
+      upstreamUrl = `https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Reference_Overlay/MapServer/tile/${z}/${y}/${x}`;
+      break;
+
+    case "osm": {
+      // OpenStreetMap — classic, always available fallback
+      const sub = ["a", "b", "c"][Math.abs(parseInt(x) + parseInt(y)) % 3];
+      upstreamUrl = `https://${sub}.tile.openstreetmap.org/${z}/${x}/${y}.png`;
+      break;
+    }
+
+    default:
+      // ESRI World Street Map — modern road map, Google-Maps quality, free
+      upstreamUrl = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/${z}/${y}/${x}`;
+      break;
+  }
 
   try {
     const upstream = await fetch(upstreamUrl, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (compatible; tabibee.com map proxy)",
-        "Accept": "image/webp,image/png,image/jpeg,image/*",
-        "Referer": "https://tabibee.com/",
-      },
-      next: { revalidate: 86400 },
+      headers: esriHeaders,
+      next: { revalidate: 86400 }, // cache tile 24 h
     });
 
     if (!upstream.ok) {
-      // Mapbox returned an error — fall back gracefully
-      return serveFallback(style, z, x, y);
+      // If ESRI fails, fall back to OSM (always available)
+      const sub = ["a", "b", "c"][Math.abs(parseInt(x) + parseInt(y)) % 3];
+      const osmUrl = `https://${sub}.tile.openstreetmap.org/${z}/${x}/${y}.png`;
+      const osmFallback = await fetch(osmUrl, {
+        headers: { "User-Agent": "tabibee.com map proxy (+https://tabibee.com)" },
+      });
+      if (osmFallback.ok) {
+        const buf = await osmFallback.arrayBuffer();
+        return new NextResponse(buf, {
+          status: 200,
+          headers: {
+            "Content-Type": "image/png",
+            "Cache-Control": "public, max-age=3600",
+            "Access-Control-Allow-Origin": "*",
+          },
+        });
+      }
+      return new NextResponse(null, { status: upstream.status });
     }
 
     const buffer = await upstream.arrayBuffer();
+    // ESRI returns JPEG for imagery/street; PNG for topo/overlay
     const ct = upstream.headers.get("content-type") ?? "image/png";
 
     return new NextResponse(buffer, {
@@ -81,57 +116,6 @@ export async function GET(
       headers: {
         "Content-Type": ct,
         "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
-        "Access-Control-Allow-Origin": "*",
-      },
-    });
-  } catch {
-    return serveFallback(style, z, x, y);
-  }
-}
-
-/** Fallback tiles when Mapbox token is missing or request fails */
-async function serveFallback(
-  style: string,
-  z: string,
-  x: string,
-  y: string
-): Promise<NextResponse> {
-  let upstreamUrl: string;
-  let headers: Record<string, string> = {
-    "User-Agent": "tabibee.com map proxy (+https://tabibee.com)",
-    "Accept": "image/png,image/*",
-  };
-
-  if (style === "satellite") {
-    upstreamUrl = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`;
-    headers = {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-      "Accept": "image/webp,image/png,image/jpeg,image/*",
-      "Referer": "https://www.arcgis.com/",
-    };
-  } else if (style === "terrain") {
-    upstreamUrl = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/${z}/${y}/${x}`;
-    headers = {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-      "Accept": "image/webp,image/png,image/jpeg,image/*",
-      "Referer": "https://www.arcgis.com/",
-    };
-  } else {
-    // Default / hybrid → OSM
-    const sub = ["a", "b", "c"][Math.abs(parseInt(x) + parseInt(y)) % 3];
-    upstreamUrl = `https://${sub}.tile.openstreetmap.org/${z}/${x}/${y}.png`;
-  }
-
-  try {
-    const res = await fetch(upstreamUrl, { headers });
-    if (!res.ok) return new NextResponse(null, { status: res.status });
-    const buf = await res.arrayBuffer();
-    const ct = res.headers.get("content-type") ?? "image/png";
-    return new NextResponse(buf, {
-      status: 200,
-      headers: {
-        "Content-Type": ct,
-        "Cache-Control": "public, max-age=3600",
         "Access-Control-Allow-Origin": "*",
       },
     });

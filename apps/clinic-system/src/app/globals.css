@@ -1,7 +1,5 @@
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
-/* maplibre-gl CSS is imported directly in PatientMapView.tsx / DoctorLocationMap.tsx
-   to avoid Lightning-CSS processing issues with the heavy data-URI SVGs */
 
 /* Extra scroll room at the bottom of any document-level scroll */
 html {
