@@ -27,48 +27,43 @@ const INJECTED = `
   (function fixViewport() {
     var vp = document.querySelector('meta[name="viewport"]');
     var content = 'width=device-width, initial-scale=1, viewport-fit=cover';
-    if (vp) {
-      vp.setAttribute('content', content);
-    } else {
+    if (vp) { vp.setAttribute('content', content); }
+    else {
       var m = document.createElement('meta');
-      m.name = 'viewport';
-      m.content = content;
+      m.name = 'viewport'; m.content = content;
       document.head.appendChild(m);
     }
   })();
 
-  // Safety patch: replace any remaining Google tiles with the proxied OSM tiles
-  // (tiles are now served via /api/tiles on the same domain — works in all WebViews)
-  function patchLeafletTiles() {
+  // Tiles now go through /api/tiles proxy by default — no patching needed.
+  // Safety net: if any direct google.com tile URLs remain, replace them too.
+  function patchGoogleTiles() {
     if (!window.L) return false;
-    var maps = [];
+    var patched = false;
     document.querySelectorAll('.leaflet-container').forEach(function(el) {
-      // Leaflet stores the map instance on the container element
       var map = el._leaflet_map || el._leafletMap;
-      if (map) maps.push(map);
-    });
-    if (maps.length === 0) return false;
-    maps.forEach(function(map) {
+      if (!map) return;
       var toRemove = [];
       map.eachLayer(function(layer) {
-        if (layer._url && layer._url.indexOf('google.com') !== -1) {
-          toRemove.push(layer);
-        }
+        if (layer._url && layer._url.indexOf('google.com') !== -1) toRemove.push(layer);
       });
       if (toRemove.length > 0) {
         toRemove.forEach(function(l) { map.removeLayer(l); });
-        window.L.tileLayer('/api/tiles/{z}/{x}/{y}.png', {
-          maxZoom: 19, minZoom: 3, updateWhenIdle: true, updateWhenZooming: false, keepBuffer: 8
+        window.L.tileLayer('/api/tiles/{z}/{x}/{y}.png?s=m&hl=ar', {
+          maxZoom: 21, minZoom: 3,
+          updateWhenIdle: true, updateWhenZooming: false,
+          keepBuffer: 2, crossOrigin: false
         }).addTo(map);
+        patched = true;
       }
     });
-    return true;
+    return patched;
   }
 
   var tries = 0;
   var iv = setInterval(function() {
-    if (patchLeafletTiles() || ++tries > 20) clearInterval(iv);
-  }, 700);
+    if (patchGoogleTiles() || ++tries > 10) clearInterval(iv);
+  }, 500);
 
   true;
 })();

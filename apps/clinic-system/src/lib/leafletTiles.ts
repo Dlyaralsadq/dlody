@@ -1,96 +1,78 @@
-/** Google Maps tiles. The previous frame stays on screen while the next zoom loads. */
+/**
+ * Google Maps tiles — served through the same-origin proxy /api/tiles
+ * so they work in every environment (browser, Android WebView, desktop PWA)
+ * without any CORS blocking or white-screen flash.
+ *
+ * Visual appearance: identical to the original Google Maps tiles.
+ * Performance: tuned for smooth, stutter-free panning and zooming.
+ */
 
 import type { TileLayer as LeafletTileLayer } from "leaflet";
 
 export type LeafletModule = typeof import("leaflet");
-export type LeafletMap = import("leaflet").Map;
+export type LeafletMap   = import("leaflet").Map;
 
 /** auto = roadmap with POIs | satellite | hybrid | terrain */
 export type MapDisplayStyle = "auto" | "satellite" | "hybrid" | "terrain";
 
 /** Google lyrs codes — roadmap (m) includes restaurants, mosques, hospitals, etc. */
 const GOOGLE_LYRS: Record<MapDisplayStyle, string> = {
-  auto: "m",
+  auto:      "m",
   satellite: "s",
-  hybrid: "y",
-  terrain: "p",
+  hybrid:    "y",
+  terrain:   "p",
 };
 
 const STYLE_CLASS: Record<MapDisplayStyle, string> = {
-  auto: "map-style-auto",
+  auto:      "map-style-auto",
   satellite: "map-style-satellite",
-  hybrid: "map-style-hybrid",
-  terrain: "map-style-terrain",
+  hybrid:    "map-style-hybrid",
+  terrain:   "map-style-terrain",
 };
 
-/** Same paper color as Google Maps, so a tile that is still arriving is not a black square. */
+/** Same paper colour as Google Maps so loading tiles never flash as a black square. */
 const STYLE_FILL: Record<MapDisplayStyle, string> = {
-  auto: "#f2efe9",
+  auto:      "#f2efe9",
   satellite: "#8d8680",
-  hybrid: "#8d8680",
-  terrain: "#e4dcc4",
+  hybrid:    "#8d8680",
+  terrain:   "#e4dcc4",
 };
 
+/**
+ * Performance-tuned tile options.
+ *
+ * Key smoothness settings:
+ *   updateWhenIdle: true  → only fetch new tiles when panning STOPS  (biggest fix)
+ *   updateWhenZooming: false → no tile requests mid-zoom
+ *   updateInterval: 200   → throttle tile loading (not too aggressive)
+ *   keepBuffer: 2         → smaller tile buffer = less memory/CPU overhead
+ */
 const TILE_OPTS = {
-  subdomains: "0123",
-  maxZoom: 21,
-  maxNativeZoom: 21,
-  minZoom: 3,
-  tileSize: 256,
-  detectRetina: false,
-  updateWhenIdle: false,
-  updateWhenZooming: false,
-  updateInterval: 40,
-  keepBuffer: 4,
-  crossOrigin: "anonymous" as const,
-};
+  maxZoom:            21,
+  maxNativeZoom:      21,
+  minZoom:            3,
+  tileSize:           256,
+  detectRetina:       false,
+  updateWhenIdle:     true,    // ← main smoothness fix (was false)
+  updateWhenZooming:  false,
+  updateInterval:     200,     // ← less aggressive (was 40)
+  keepBuffer:         2,       // ← smaller buffer (was 4)
+  crossOrigin:        false as const,  // same-origin proxy → no CORS needed
+} as const;
 
-/** OSM tile URL used as fallback when Google tiles fail on iOS/restricted networks. */
-const OSM_TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
-
-function attachTileFallback(
-  layer: LeafletTileLayer,
-  L: LeafletModule,
-  map: LeafletMap,
-  layersRef: LeafletTileLayer[]
-): void {
-  let failCount = 0;
-  let fallbackApplied = false;
-
-  layer.on("tileerror", () => {
-    if (fallbackApplied) return;
-    failCount++;
-    if (failCount >= 4) {
-      fallbackApplied = true;
-      const osmLayer = L.tileLayer(OSM_TILE_URL, {
-        subdomains: "abc",
-        maxZoom: 19,
-        maxNativeZoom: 19,
-        minZoom: 3,
-        tileSize: 256,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      });
-      osmLayer.addTo(map);
-      layersRef.forEach((old) => {
-        if (old !== osmLayer && map.hasLayer(old)) map.removeLayer(old);
-      });
-      // Replace the layers array contents in-place
-      layersRef.splice(0, layersRef.length, osmLayer);
-    }
-  });
+/** Proxy tile URL — routes through tabibee.com, same visual result as Google Maps */
+function googleProxyUrl(lyrs: string, lang: "ar" | "en"): string {
+  const hl = lang === "ar" ? "&hl=ar" : "&hl=en";
+  return `/api/tiles/{z}/{x}/{y}.png?s=${lyrs}${hl}`;
 }
 
 function tileLang(locale: string): "ar" | "en" {
   return isArabicLocale(locale) ? "ar" : "en";
 }
 
-function googleTileUrl(lyrs: string, lang: "ar" | "en"): string {
-  return `https://mt{s}.google.com/vt/lyrs=${lyrs}&hl=${lang}&gl=IQ&x={x}&y={y}&z={z}`;
-}
-
 function markMapStyle(map: LeafletMap, style: MapDisplayStyle) {
   const container = map.getContainer();
-  Object.values(STYLE_CLASS).forEach((name) => container.classList.remove(name));
+  Object.values(STYLE_CLASS).forEach((c) => container.classList.remove(c));
   container.classList.add(STYLE_CLASS[style]);
   container.style.setProperty("background", STYLE_FILL[style], "important");
 }
@@ -99,7 +81,7 @@ export function isArabicLocale(locale: string): boolean {
   return locale === "ar" || locale.startsWith("ar-");
 }
 
-/** Create a Google Maps tile layer. The URL stays stable so the browser can keep tiles. */
+/** Create a proxied Google Maps tile layer. Visual output = standard Google Maps. */
 export function createGoogleTileLayer(
   L: LeafletModule,
   locale: string,
@@ -107,9 +89,9 @@ export function createGoogleTileLayer(
 ): LeafletTileLayer {
   const lang = tileLang(locale);
   const lyrs = GOOGLE_LYRS[style];
-  const ar = lang === "ar";
+  const ar   = lang === "ar";
 
-  return L.tileLayer(googleTileUrl(lyrs, lang), {
+  return L.tileLayer(googleProxyUrl(lyrs, lang), {
     ...TILE_OPTS,
     attribution: ar
       ? '&copy; <a href="https://www.google.com/maps">خرائط Google</a>'
@@ -131,9 +113,7 @@ export function setMapDisplayStyle(
     if (old !== layer && map.hasLayer(old)) map.removeLayer(old);
   });
   markMapStyle(map, style);
-  const layersArr = [layer];
-  attachTileFallback(layer, L, map, layersArr);
-  return layersArr;
+  return [layer];
 }
 
 export function applyHighQualityTiles(
@@ -145,33 +125,46 @@ export function applyHighQualityTiles(
   return setMapDisplayStyle(map, [], L, locale, style);
 }
 
+/**
+ * Leaflet map constructor defaults.
+ *
+ * Key smoothness settings:
+ *   zoomSnap: 1        → whole zoom levels only (was 0.5 — caused choppy half-steps)
+ *   zoomDelta: 1       → matches zoomSnap
+ *   wheelPxPerZoomLevel: 60 → smoother wheel zoom (was 40 — too sensitive)
+ *   wheelDebounceTime: 40  → debounce rapid scroll wheel
+ *   preferCanvas: true → GPU canvas rendering instead of SVG
+ *   fadeAnimation: true → smooth tile crossfade
+ */
 export const MAP_DEFAULTS = {
-  maxZoom: 21,
-  minZoom: 3,
-  zoomSnap: 0.5,
-  zoomDelta: 0.5,
-  wheelPxPerZoomLevel: 40,
-  wheelDebounceTime: 20,
-  fadeAnimation: false,
-  zoomAnimation: true,
+  maxZoom:             21,
+  minZoom:             3,
+  zoomSnap:            1,     // ← whole zoom levels (was 0.5)
+  zoomDelta:           1,     // ← match zoomSnap (was 0.5)
+  wheelPxPerZoomLevel: 60,    // ← smoother wheel zoom (was 40)
+  wheelDebounceTime:   40,
+  fadeAnimation:       true,  // ← smooth tile transitions (was false)
+  zoomAnimation:       true,
   markerZoomAnimation: true,
-  inertia: true,
-  inertiaDeceleration: 2200,
-  easeLinearity: 0.25,
+  inertia:             true,
+  inertiaDeceleration: 2000,
+  easeLinearity:       0.2,
+  preferCanvas:        true,  // ← GPU canvas rendering
 } as const;
 
 export const MAP_REFRESH_MS = 4_000;
 
 export function getMapPreconnectHosts(_locale = "ar"): string[] {
-  return [0, 1, 2, 3].map((n) => `https://mt${n}.google.com`);
+  // Tiles go through the same-origin proxy — no external preconnect needed
+  return [];
 }
 
 export function getMapStyleLabel(style: MapDisplayStyle, ar: boolean): string {
   const labels: Record<MapDisplayStyle, { ar: string; en: string }> = {
-    auto: { ar: "خرائط", en: "Map" },
+    auto:      { ar: "خرائط",     en: "Map"       },
     satellite: { ar: "قمر صناعي", en: "Satellite" },
-    hybrid: { ar: "هجين", en: "Hybrid" },
-    terrain: { ar: "تضاريس", en: "Terrain" },
+    hybrid:    { ar: "هجين",      en: "Hybrid"    },
+    terrain:   { ar: "تضاريس",   en: "Terrain"   },
   };
   return ar ? labels[style].ar : labels[style].en;
 }
