@@ -1,12 +1,14 @@
 /**
  * Tile-layer helpers for Leaflet maps.
  *
- * All tiles are proxied through /api/tiles so they work in WebView & Electron.
+ * All tiles proxied through /api/tiles — same-origin requests work in
+ * every environment (browser, Android WebView, Electron).
  *
- * "auto"      → CartoDB Voyager  (modern colourful road map — industry standard)
- * "satellite" → ESRI World Imagery  (satellite, with CartoDB Voyager fallback)
- * "hybrid"    → ESRI Imagery + CartoDB labels overlay
- * "terrain"   → ESRI World Topo Map (with CartoDB Voyager fallback)
+ * Provider: ESRI ArcGIS Living Atlas (free-to-use for public display)
+ *   auto      → ESRI World Street Map   (Google-Maps quality road map)
+ *   satellite → ESRI World Imagery      (high-res satellite photography)
+ *   hybrid    → ESRI Imagery + ESRI Reference Overlay (labels)
+ *   terrain   → ESRI World Topo Map     (topographic / hillshading)
  */
 
 import type { TileLayer as LeafletTileLayer } from "leaflet";
@@ -23,29 +25,29 @@ const STYLE_CLASS: Record<MapDisplayStyle, string> = {
   terrain:   "map-style-terrain",
 };
 
-/** Tile background colour while loading — matches each provider's paper colour. */
+/** Loading background colour — matches each provider's paper colour so tiles
+ *  never flash as a black square while loading. */
 const STYLE_FILL: Record<MapDisplayStyle, string> = {
-  auto:      "#f4f1ec",   // CartoDB Voyager cream
-  satellite: "#2a2724",   // dark earth tone
-  hybrid:    "#2a2724",
-  terrain:   "#e8e0d4",   // ESRI Topo light tan
+  auto:      "#f5efdf",   // ESRI World Street Map warm cream
+  satellite: "#1e1a16",   // dark earth tone
+  hybrid:    "#1e1a16",
+  terrain:   "#f0ede6",   // ESRI Topo light parchment
 };
 
-/** Performance options — minimise tile requests during animation on mobile. */
+/** Performance options tuned for smooth mobile scrolling/zooming */
 const PERF_OPTS = {
-  maxZoom:          19,
-  maxNativeZoom:    19,
-  minZoom:          3,
-  tileSize:         256,
-  detectRetina:     false,
-  updateWhenIdle:   true,       // load tiles only after map stops moving
-  updateWhenZooming: false,     // no requests during zoom animation
-  updateInterval:   150,
-  keepBuffer:       6,
-  crossOrigin:      false as const,
+  maxZoom:           19,
+  maxNativeZoom:     19,
+  minZoom:           3,
+  tileSize:          256,
+  detectRetina:      false,
+  updateWhenIdle:    true,        // only load tiles after map stops
+  updateWhenZooming: false,       // no tile requests during zoom animation
+  updateInterval:    150,
+  keepBuffer:        6,
+  crossOrigin:       false as const,
 } as const;
 
-/** Proxy base — all tiles go through the same origin */
 const PROXY = "/api/tiles";
 
 function markMapStyle(map: LeafletMap, style: MapDisplayStyle) {
@@ -61,31 +63,35 @@ export function isArabicLocale(locale: string): boolean {
 
 /**
  * Returns one or two tile layers for the requested style.
- * "hybrid" returns [imagery, labels] — both layers must be added to the map.
+ * "hybrid" returns [imagery, labels] — both layers are added to the map.
  */
 function createTileLayers(
   L: LeafletModule,
   _locale: string,
   style: MapDisplayStyle = "auto"
 ): LeafletTileLayer[] {
+
   if (style === "satellite") {
     return [
       L.tileLayer(`${PROXY}/{z}/{x}/{y}.png?s=satellite`, {
         ...PERF_OPTS,
-        attribution: "Imagery &copy; <a href='https://www.esri.com'>Esri</a>",
+        attribution:
+          "Imagery &copy; <a href='https://www.esri.com'>Esri</a>, Maxar, Earthstar Geographics",
       }),
     ];
   }
 
   if (style === "hybrid") {
     return [
+      // base: ESRI satellite imagery
       L.tileLayer(`${PROXY}/{z}/{x}/{y}.png?s=satellite`, {
         ...PERF_OPTS,
         attribution: "Imagery &copy; Esri",
       }),
+      // overlay: ESRI transparent road/city labels
       L.tileLayer(`${PROXY}/{z}/{x}/{y}.png?s=labels`, {
         ...PERF_OPTS,
-        opacity: 0.95,
+        opacity: 1,
         pane: "overlayPane",
       }),
     ];
@@ -95,17 +101,18 @@ function createTileLayers(
     return [
       L.tileLayer(`${PROXY}/{z}/{x}/{y}.png?s=terrain`, {
         ...PERF_OPTS,
-        attribution: "Tiles &copy; <a href='https://www.esri.com'>Esri</a>",
+        attribution:
+          "Tiles &copy; <a href='https://www.esri.com'>Esri</a>, USGS, NOAA",
       }),
     ];
   }
 
-  // Default "auto" — CartoDB Voyager (modern, clean, free, no API key)
+  // Default "auto" — ESRI World Street Map (Google-Maps-quality road map, free)
   return [
     L.tileLayer(`${PROXY}/{z}/{x}/{y}.png`, {
       ...PERF_OPTS,
       attribution:
-        '&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        "Tiles &copy; <a href='https://www.esri.com'>Esri</a>, HERE, Garmin, FAO, NOAA",
     }),
   ];
 }
@@ -136,7 +143,7 @@ export function applyHighQualityTiles(
   return setMapDisplayStyle(map, [], L, locale, style);
 }
 
-/** @deprecated use setMapDisplayStyle / createTileLayers instead */
+/** @deprecated use setMapDisplayStyle instead */
 export function createGoogleTileLayer(
   L: LeafletModule,
   locale: string,
@@ -147,36 +154,33 @@ export function createGoogleTileLayer(
 
 /** Leaflet map constructor defaults — tuned for smooth mobile panning. */
 export const MAP_DEFAULTS = {
-  maxZoom:            19,
-  minZoom:            3,
-  zoomSnap:           1,
-  zoomDelta:          1,
+  maxZoom:             19,
+  minZoom:             3,
+  zoomSnap:            1,
+  zoomDelta:           1,
   wheelPxPerZoomLevel: 60,
-  wheelDebounceTime:  40,
-  fadeAnimation:      true,
-  zoomAnimation:      true,
+  wheelDebounceTime:   40,
+  fadeAnimation:       true,
+  zoomAnimation:       true,
   markerZoomAnimation: true,
-  inertia:            true,
+  inertia:             true,
   inertiaDeceleration: 2000,
-  easeLinearity:      0.2,
-  preferCanvas:       true,
+  easeLinearity:       0.2,
+  preferCanvas:        true,
 } as const;
 
 export const MAP_REFRESH_MS = 4_000;
 
 export function getMapPreconnectHosts(_locale = "ar"): string[] {
-  return [
-    "https://a.basemaps.cartocdn.com",
-    "https://server.arcgisonline.com",
-  ];
+  return ["https://server.arcgisonline.com"];
 }
 
 export function getMapStyleLabel(style: MapDisplayStyle, ar: boolean): string {
   const labels: Record<MapDisplayStyle, { ar: string; en: string }> = {
-    auto:      { ar: "خرائط",       en: "Map"       },
-    satellite: { ar: "قمر صناعي",   en: "Satellite" },
-    hybrid:    { ar: "هجين",        en: "Hybrid"    },
-    terrain:   { ar: "تضاريس",     en: "Terrain"   },
+    auto:      { ar: "خرائط",     en: "Map"       },
+    satellite: { ar: "قمر صناعي", en: "Satellite" },
+    hybrid:    { ar: "هجين",      en: "Hybrid"    },
+    terrain:   { ar: "تضاريس",   en: "Terrain"   },
   };
   return ar ? labels[style].ar : labels[style].en;
 }

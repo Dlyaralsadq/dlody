@@ -19,18 +19,18 @@ select option {
    Background colours match each tile provider's paper so loading tiles
    never flash as a black square. */
 .leaflet-container {
-  /* CartoDB Voyager cream — default "auto" style */
-  background: #f4f1ec !important;
+  /* ESRI World Street Map warm cream — matches map paper colour */
+  background: #f5efdf !important;
   font-family: "Cairo", "Inter", sans-serif;
 }
 .leaflet-container.map-style-satellite,
 .leaflet-container.map-style-hybrid {
   /* Dark earth tone while satellite tiles load */
-  background: #2a2724 !important;
+  background: #1e1a16 !important;
 }
 .leaflet-container.map-style-terrain {
-  /* ESRI Topo light tan */
-  background: #e8e0d4 !important;
+  /* ESRI Topo parchment */
+  background: #f0ede6 !important;
 }
 .leaflet-tile {
   background: transparent;
