@@ -11,31 +11,36 @@ export const PAGE_SCROLL_PADDING =
 export const MODAL_SCROLL_SPACER =
   "h-[calc(3rem+env(safe-area-inset-bottom,0px))]";
 
-/** Patient fixed bottom nav */
+/**
+ * Patient floating bottom nav constants.
+ * Nav is raised 0.75rem from screen bottom + 0.75rem safe-area padding.
+ * Nav visual height ≈ 4.5rem → total clearance needed = 4.5rem + 0.75rem + safe-area ≈ 6.25rem.
+ * We use 7rem as a safe rounded value to leave breathing room.
+ */
 export const PATIENT_NAV_BOTTOM =
-  "pb-[calc(6.5rem+env(safe-area-inset-bottom,0px)+5rem)]";
+  "pb-[calc(7rem+env(safe-area-inset-bottom,0px)+5rem)]";
 
 export const PATIENT_NAV_SPACER_HEIGHT =
-  "h-[calc(6.5rem+env(safe-area-inset-bottom,0px)+5rem)]";
+  "h-[calc(7rem+env(safe-area-inset-bottom,0px))]";
 
 export const PATIENT_NAV_BOTTOM_SCROLL =
-  "pb-[calc(6.5rem+env(safe-area-inset-bottom,0px)+8rem)]";
+  "pb-[calc(7rem+env(safe-area-inset-bottom,0px)+8rem)]";
 
 /** End spacer for patient doctor profile inner scroll */
 export const PATIENT_PROFILE_SCROLL_SPACER =
-  "h-[calc(6.5rem+env(safe-area-inset-bottom,0px)+8rem)]";
+  "h-[calc(7rem+env(safe-area-inset-bottom,0px)+8rem)]";
 
 export const PATIENT_NAV_INSET =
-  "pb-[calc(6.5rem+env(safe-area-inset-bottom,0px)+5rem)]";
+  "pb-[calc(7rem+env(safe-area-inset-bottom,0px)+5rem)]";
 
 export const PATIENT_NAV_BOTTOM_OFFSET =
-  "bottom-[calc(6.5rem+env(safe-area-inset-bottom,0px)+0.25rem)]";
+  "bottom-[calc(7rem+env(safe-area-inset-bottom,0px)+0.25rem)]";
 
 export const PATIENT_NAV_LEGEND_OFFSET =
-  "bottom-[calc(6.5rem+env(safe-area-inset-bottom,0px)+5rem)]";
+  "bottom-[calc(7rem+env(safe-area-inset-bottom,0px)+5rem)]";
 
 export const PATIENT_NAV_SCROLL_PADDING =
-  "scroll-pb-[calc(6.5rem+env(safe-area-inset-bottom,0px)+5rem)]";
+  "scroll-pb-[calc(7rem+env(safe-area-inset-bottom,0px)+5rem)]";
 
 export type ScrollSpacerVariant = "page" | "dashboard" | "modal" | "patientNav" | "patientProfile";
 

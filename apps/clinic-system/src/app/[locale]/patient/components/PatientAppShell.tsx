@@ -32,19 +32,27 @@ export default function PatientAppShell() {
       {/* Mobile: bottom tab bar. `lg:hidden` is a width-based fallback that always
           works; `mobile-only` additionally hides it on a real desktop even when its
           window is narrower than `lg`. */}
+      {/* Floating bottom tab bar — raised 12 px above screen edge */}
       <nav
-        className="mobile-only lg:hidden fixed bottom-0 inset-x-0 z-[9999] backdrop-blur-xl shadow-[0_-4px_24px_rgba(0,0,0,0.45)]"
-        style={{ borderTop: "1px solid var(--border)", background: "color-mix(in srgb, var(--bg-root) 98%, transparent)" }}
+        className="mobile-only lg:hidden fixed z-[9999] backdrop-blur-xl"
+        style={{
+          bottom: "calc(0.75rem + env(safe-area-inset-bottom, 0px))",
+          left: "0.75rem",
+          right: "0.75rem",
+          borderRadius: "1.25rem",
+          border: "1px solid rgba(255,255,255,0.09)",
+          background: "color-mix(in srgb, var(--bg-root) 96%, transparent)",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.3)",
+        }}
       >
-        {/* safe-area inset separator — lifts the bar above the home indicator */}
-        <div className="mx-auto flex max-w-lg items-stretch justify-around px-1 pt-2 pb-[max(1rem,calc(env(safe-area-inset-bottom)+0.5rem))]">
+        <div className="mx-auto flex max-w-lg items-stretch justify-around px-2 pt-2 pb-3">
           {tabs.map(({ href, icon: Icon, label, exact }) => {
             const active = isActive(href, exact);
             return (
               <Link
                 key={href}
                 href={href}
-                className="flex flex-1 flex-col items-center gap-0.5 py-1.5 rounded-xl transition bg-app-hover"
+                className="flex flex-1 flex-col items-center gap-0.5 py-1.5 rounded-xl transition"
                 style={{ color: active ? "var(--text-1)" : "var(--text-3)" }}
               >
                 <Icon
