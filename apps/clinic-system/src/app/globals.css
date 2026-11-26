@@ -344,6 +344,12 @@ select option {
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* ── Fix: Tailwind v4 uses margin-inline:auto for mx-auto (logical property),
+   but the margin:0 reset above sets physical margin-left/right:0 which wins
+   in some browsers via CSS Logical Properties conflict resolution.
+   Force physical centering for mx-auto explicitly. ── */
+.mx-auto { margin-left: auto !important; margin-right: auto !important; }
+
 html, body {
   height: 100%;
   background: var(--bg-root);
