@@ -57,6 +57,7 @@ export function isMobilePlatform(platform: DevicePlatform): boolean {
 /** True when the app is already running installed/standalone (no browser chrome). */
 export function isStandalonePwa(): boolean {
   if (typeof window === "undefined") return false;
+  if (typeof navigator !== "undefined" && /TabibeeApp/i.test(navigator.userAgent)) return true;
   const nav = window.navigator as Navigator & { standalone?: boolean };
   return window.matchMedia("(display-mode: standalone)").matches || nav.standalone === true;
 }

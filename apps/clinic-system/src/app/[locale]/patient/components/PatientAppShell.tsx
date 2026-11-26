@@ -36,7 +36,8 @@ export default function PatientAppShell() {
         className="mobile-only lg:hidden fixed bottom-0 inset-x-0 z-[9999] backdrop-blur-xl shadow-[0_-4px_24px_rgba(0,0,0,0.45)]"
         style={{ borderTop: "1px solid var(--border)", background: "color-mix(in srgb, var(--bg-root) 98%, transparent)" }}
       >
-        <div className="mx-auto flex max-w-lg items-stretch justify-around px-1 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+        {/* safe-area inset separator — lifts the bar above the home indicator */}
+        <div className="mx-auto flex max-w-lg items-stretch justify-around px-1 pt-2 pb-[max(1rem,calc(env(safe-area-inset-bottom)+0.5rem))]">
           {tabs.map(({ href, icon: Icon, label, exact }) => {
             const active = isActive(href, exact);
             return (

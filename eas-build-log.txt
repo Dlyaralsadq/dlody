@@ -1,0 +1,24 @@
+﻿Resolved "preview" environment for the build. Learn more: https://docs.expo.dev/eas/environment-variables/#setting-the-environment-for-your-builds
+No environment variables with visibility "Plain text" and "Sensitive" found for the "preview" environment on EAS.
+Environment variables loaded from the "preview" build profile "env" configuration: PRISMA_GENERATE_SKIP_AUTOINSTALL.
+
+
+
+√ Using remote Android credentials (Expo server)
+√ Using Keystore from configuration: Build Credentials bmew0tFLxq (default)
+
+Compressing project files and uploading to EAS Build. Learn more: https://expo.fyi/eas-build-archive
+- Compressing project files
+- Uploading to EAS Build (0 / 35.5 MB)
+√ Uploaded to EAS 4s
+- Computing project fingerprint
+√ Computed project fingerprint
+
+See logs: https://expo.dev/accounts/dlyar/projects/tabibee/builds/41e94880-52ec-487c-b54d-1081224d761f
+
+Waiting for build to complete. You can press Ctrl+C to exit.
+- Waiting for build to complete.
+× Build failed
+
+🤖 Android build failed:
+Gradle build failed with unknown error. See logs for the "Run gradlew" (https://expo.dev/accounts/dlyar/projects/tabibee/builds/41e94880-52ec-487c-b54d-1081224d761f#run-gradlew) phase for more information.

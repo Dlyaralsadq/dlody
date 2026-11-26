@@ -23,12 +23,29 @@ const INJECTED = `
   try { localStorage.setItem("pwa-install-dismissed", "1"); } catch (e) {}
   document.documentElement.classList.add("tabibee-native-app");
 
-  // Fix map tiles: replace Google tiles with OSM (works in WebView without Referer)
+  // Ensure correct viewport on small phones
+  (function fixViewport() {
+    var vp = document.querySelector('meta[name="viewport"]');
+    var content = 'width=device-width, initial-scale=1, viewport-fit=cover';
+    if (vp) {
+      vp.setAttribute('content', content);
+    } else {
+      var m = document.createElement('meta');
+      m.name = 'viewport';
+      m.content = content;
+      document.head.appendChild(m);
+    }
+  })();
+
+  // Safety patch: replace any remaining Google tiles with the proxied OSM tiles
+  // (tiles are now served via /api/tiles on the same domain — works in all WebViews)
   function patchLeafletTiles() {
     if (!window.L) return false;
     var maps = [];
     document.querySelectorAll('.leaflet-container').forEach(function(el) {
-      if (el._leaflet_map) maps.push(el._leaflet_map);
+      // Leaflet stores the map instance on the container element
+      var map = el._leaflet_map || el._leafletMap;
+      if (map) maps.push(map);
     });
     if (maps.length === 0) return false;
     maps.forEach(function(map) {
@@ -40,19 +57,18 @@ const INJECTED = `
       });
       if (toRemove.length > 0) {
         toRemove.forEach(function(l) { map.removeLayer(l); });
-        window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          subdomains: 'abc', maxZoom: 19, minZoom: 3
+        window.L.tileLayer('/api/tiles/{z}/{x}/{y}.png', {
+          maxZoom: 19, minZoom: 3, updateWhenIdle: true, updateWhenZooming: false, keepBuffer: 8
         }).addTo(map);
       }
     });
     return true;
   }
 
-  // Try patching every 800ms for 15 seconds
   var tries = 0;
   var iv = setInterval(function() {
-    if (patchLeafletTiles() || ++tries > 18) clearInterval(iv);
-  }, 800);
+    if (patchLeafletTiles() || ++tries > 20) clearInterval(iv);
+  }, 700);
 
   true;
 })();

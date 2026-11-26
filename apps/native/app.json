@@ -2,7 +2,7 @@
   "expo": {
     "name": "طبيبي",
     "slug": "tabibee",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "tabibee",
@@ -32,7 +32,7 @@
         "backgroundColor": "#060912"
       },
       "package": "com.tabibee.app",
-      "versionCode": 2,
+      "versionCode": 9,
       "permissions": [
         "INTERNET",
         "ACCESS_NETWORK_STATE",
@@ -40,7 +40,9 @@
         "ACCESS_COARSE_LOCATION",
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES",
+        "READ_MEDIA_VIDEO"
       ]
     },
     "web": {
