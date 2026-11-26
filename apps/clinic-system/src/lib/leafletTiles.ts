@@ -59,6 +59,7 @@ export function isArabicLocale(locale: string): boolean {
 
 /**
  * Returns one or two tile layers for the requested style.
+ * ALL tiles are proxied through /api/tiles so they work in WebView & Electron.
  * "hybrid" returns [imagery, labels] — both must be added to the map.
  */
 function createTileLayers(
@@ -77,48 +78,38 @@ function createTileLayers(
   }
 
   if (style === "satellite") {
+    // Proxied ESRI World Imagery — same-origin, works in all WebViews
     return [
-      L.tileLayer(
-        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-        {
-          ...PERF_OPTS,
-          attribution:
-            "Tiles &copy; <a href='https://www.esri.com'>Esri</a>",
-        }
-      ),
+      L.tileLayer("/api/tiles/{z}/{x}/{y}.png?s=satellite", {
+        ...PERF_OPTS,
+        attribution: "Tiles &copy; Esri",
+      }),
     ];
   }
 
   if (style === "hybrid") {
     return [
-      // base: ESRI satellite imagery
-      L.tileLayer(
-        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-        { ...PERF_OPTS, attribution: "Tiles &copy; Esri" }
-      ),
-      // overlay: CartoDB labels only (transparent background, text only)
-      L.tileLayer(
-        "https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}.png",
-        {
-          ...PERF_OPTS,
-          subdomains: "abcd",
-          opacity: 0.9,
-          pane: "overlayPane",
-        }
-      ),
+      // base: ESRI satellite imagery (proxied)
+      L.tileLayer("/api/tiles/{z}/{x}/{y}.png?s=satellite", {
+        ...PERF_OPTS,
+        attribution: "Tiles &copy; Esri",
+      }),
+      // overlay: CartoDB labels only (proxied)
+      L.tileLayer("/api/tiles/{z}/{x}/{y}.png?s=labels", {
+        ...PERF_OPTS,
+        opacity: 0.9,
+        pane: "overlayPane",
+      }),
     ];
   }
 
   if (style === "terrain") {
+    // Proxied ESRI World Topo Map
     return [
-      L.tileLayer(
-        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
-        {
-          ...PERF_OPTS,
-          attribution:
-            "Tiles &copy; <a href='https://www.esri.com'>Esri</a>",
-        }
-      ),
+      L.tileLayer("/api/tiles/{z}/{x}/{y}.png?s=terrain", {
+        ...PERF_OPTS,
+        attribution: "Tiles &copy; Esri",
+      }),
     ];
   }
 
