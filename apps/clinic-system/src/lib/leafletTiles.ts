@@ -28,7 +28,7 @@ const STYLE_CLASS: Record<MapDisplayStyle, string> = {
 /** Loading background colour — matches each provider's paper colour so tiles
  *  never flash as a black square while loading. */
 const STYLE_FILL: Record<MapDisplayStyle, string> = {
-  auto:      "#f5efdf",   // ESRI World Street Map warm cream
+  auto:      "#f2efe9",   // OSM classic light cream
   satellite: "#1e1a16",   // dark earth tone
   hybrid:    "#1e1a16",
   terrain:   "#f0ede6",   // ESRI Topo light parchment
@@ -36,8 +36,8 @@ const STYLE_FILL: Record<MapDisplayStyle, string> = {
 
 /** Performance options tuned for smooth mobile scrolling/zooming */
 const PERF_OPTS = {
-  maxZoom:           19,
-  maxNativeZoom:     19,
+  maxZoom:           20,    // allow zooming in to building level
+  maxNativeZoom:     19,    // OSM/ESRI max native zoom
   minZoom:           3,
   tileSize:          256,
   detectRetina:      false,
@@ -88,10 +88,11 @@ function createTileLayers(
         ...PERF_OPTS,
         attribution: "Imagery &copy; Esri",
       }),
-      // overlay: ESRI transparent road/city labels
-      L.tileLayer(`${PROXY}/{z}/{x}/{y}.png?s=labels`, {
+      // overlay: OSM roads, buildings, POI labels at semi-transparency
+      // gives satellite imagery + all street names, buildings, shops, etc.
+      L.tileLayer(`${PROXY}/{z}/{x}/{y}.png`, {
         ...PERF_OPTS,
-        opacity: 1,
+        opacity: 0.55,
         pane: "overlayPane",
       }),
     ];
@@ -107,12 +108,14 @@ function createTileLayers(
     ];
   }
 
-  // Default "auto" — ESRI World Street Map (Google-Maps-quality road map, free)
+  // Default "auto" — OpenStreetMap: richest dataset on Earth.
+  // Buildings visible at zoom 15+, all POIs (shops/pharmacies/hotels/hospitals/
+  // mosques/restaurants/banks/schools) at zoom 16+, Arabic street names everywhere.
   return [
     L.tileLayer(`${PROXY}/{z}/{x}/{y}.png`, {
       ...PERF_OPTS,
       attribution:
-        "Tiles &copy; <a href='https://www.esri.com'>Esri</a>, HERE, Garmin, FAO, NOAA",
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     }),
   ];
 }
@@ -154,7 +157,7 @@ export function createGoogleTileLayer(
 
 /** Leaflet map constructor defaults — tuned for smooth mobile panning. */
 export const MAP_DEFAULTS = {
-  maxZoom:             19,
+  maxZoom:             20,  // allows zooming to individual building level
   minZoom:             3,
   zoomSnap:            1,
   zoomDelta:           1,

@@ -19,8 +19,8 @@ select option {
    Background colours match each tile provider's paper so loading tiles
    never flash as a black square. */
 .leaflet-container {
-  /* ESRI World Street Map warm cream — matches map paper colour */
-  background: #f5efdf !important;
+  /* OpenStreetMap classic cream — matches map paper colour */
+  background: #f2efe9 !important;
   font-family: "Cairo", "Inter", sans-serif;
 }
 .leaflet-container.map-style-satellite,
