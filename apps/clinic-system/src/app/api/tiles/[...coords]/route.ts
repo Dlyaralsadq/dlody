@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 
 /**
- * Universal tile proxy — serves OSM, ESRI Imagery, ESRI Topo, and CartoDB labels
- * through the same origin so WebView / Electron never makes cross-origin image requests.
+ * Universal tile proxy — routes all map tile requests through tabibee.com
+ * so WebView / Electron never makes cross-origin image requests.
  *
- * URL patterns:
- *   /api/tiles/{z}/{x}/{y}.png            → OpenStreetMap (default)
- *   /api/tiles/{z}/{x}/{y}.png?s=satellite → ESRI World Imagery
- *   /api/tiles/{z}/{x}/{y}.png?s=terrain   → ESRI World Topo
- *   /api/tiles/{z}/{x}/{y}.png?s=labels    → CartoDB light labels (hybrid overlay)
+ * URL patterns (all use standard Leaflet {z}/{x}/{y} order):
+ *   /api/tiles/{z}/{x}/{y}.png            → CartoDB Voyager  (default, modern road map)
+ *   /api/tiles/{z}/{x}/{y}.png?s=dark     → CartoDB Dark Matter
+ *   /api/tiles/{z}/{x}/{y}.png?s=satellite → ESRI World Imagery (satellite)
+ *   /api/tiles/{z}/{x}/{y}.png?s=terrain   → ESRI World Topo Map
+ *   /api/tiles/{z}/{x}/{y}.png?s=labels    → CartoDB labels overlay (for hybrid)
  */
 export async function GET(
   req: NextRequest,
@@ -24,64 +25,72 @@ export async function GET(
   const y = yPng?.replace(/\.png$/i, "");
   const style = req.nextUrl.searchParams.get("s") ?? "auto";
 
-  // Validate numeric values to prevent SSRF
+  // Validate numeric to prevent SSRF
   if (!/^\d+$/.test(z) || !/^\d+$/.test(x) || !/^\d+$/.test(y)) {
     return new NextResponse("Bad request", { status: 400 });
   }
-
   const zoom = parseInt(z, 10);
   if (zoom < 0 || zoom > 21) {
     return new NextResponse("Bad request", { status: 400 });
   }
 
   let upstreamUrl: string;
-  let upstreamHeaders: Record<string, string>;
+  const baseHeaders: Record<string, string> = {
+    "User-Agent":
+      "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+    "Accept": "image/webp,image/png,image/*,*/*",
+    "Referer": "https://tabibee.com/",
+  };
 
   if (style === "satellite") {
-    // ESRI World Imagery — tile URL uses {z}/{y}/{x} order (not {z}/{x}/{y})
+    // ESRI World Imagery — tile URL uses {z}/{y}/{x} (row/col reversed vs Leaflet)
     upstreamUrl = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`;
-    upstreamHeaders = {
-      "User-Agent": "Mozilla/5.0 tabibee.com tile proxy",
-      "Referer": "https://tabibee.com/",
-    };
   } else if (style === "terrain") {
-    // ESRI World Topo Map — also {z}/{y}/{x} order
+    // ESRI World Topo Map — also {z}/{y}/{x}
     upstreamUrl = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/${z}/${y}/${x}`;
-    upstreamHeaders = {
-      "User-Agent": "Mozilla/5.0 tabibee.com tile proxy",
-      "Referer": "https://tabibee.com/",
-    };
   } else if (style === "labels") {
-    // CartoDB light_only_labels — for hybrid overlay
+    // CartoDB light_only_labels for hybrid overlay
     const sub = ["a", "b", "c", "d"][Math.abs(parseInt(x) + parseInt(y)) % 4];
     upstreamUrl = `https://${sub}.basemaps.cartocdn.com/light_only_labels/${z}/${x}/${y}.png`;
-    upstreamHeaders = {
-      "User-Agent": "Mozilla/5.0 tabibee.com tile proxy",
-      "Referer": "https://tabibee.com/",
-    };
+  } else if (style === "dark") {
+    // CartoDB Dark Matter — dark map matching app theme
+    const sub = ["a", "b", "c", "d"][Math.abs(parseInt(x) + parseInt(y)) % 4];
+    upstreamUrl = `https://${sub}.basemaps.cartocdn.com/dark_all/${z}/${x}/${y}.png`;
   } else {
-    // Default: OpenStreetMap
-    const sub = ["a", "b", "c"][Math.abs(parseInt(x) + parseInt(y)) % 3];
-    upstreamUrl = `https://${sub}.tile.openstreetmap.org/${z}/${x}/${y}.png`;
-    upstreamHeaders = {
-      "User-Agent": "tabibee.com map proxy (+https://tabibee.com)",
-      "Referer": "https://tabibee.com/",
-    };
+    // Default: CartoDB Voyager — modern, clean, colorful road map
+    const sub = ["a", "b", "c", "d"][Math.abs(parseInt(x) + parseInt(y)) % 4];
+    upstreamUrl = `https://${sub}.basemaps.cartocdn.com/rastertiles/voyager/${z}/${x}/${y}.png`;
   }
 
   try {
     const upstream = await fetch(upstreamUrl, {
-      headers: upstreamHeaders,
-      next: { revalidate: 86400 }, // cache tile for 24 h
+      headers: baseHeaders,
+      next: { revalidate: 86400 }, // cache tile 24 h on Railway CDN
     });
 
     if (!upstream.ok) {
+      // If ESRI fails, fall back to CartoDB Voyager
+      if (style === "satellite" || style === "terrain") {
+        const sub = ["a", "b", "c", "d"][Math.abs(parseInt(x) + parseInt(y)) % 4];
+        const fallback = `https://${sub}.basemaps.cartocdn.com/rastertiles/voyager/${z}/${x}/${y}.png`;
+        const fb = await fetch(fallback, { headers: baseHeaders });
+        if (fb.ok) {
+          const buf = await fb.arrayBuffer();
+          return new NextResponse(buf, {
+            status: 200,
+            headers: {
+              "Content-Type": "image/png",
+              "Cache-Control": "public, max-age=3600",
+              "Access-Control-Allow-Origin": "*",
+            },
+          });
+        }
+      }
       return new NextResponse(null, { status: upstream.status });
     }
 
     const buffer = await upstream.arrayBuffer();
-
-    // Detect content type — ESRI tiles may return JPEG
+    // ESRI returns JPEG; CartoDB returns PNG
     const ct = upstream.headers.get("content-type") ?? "image/png";
 
     return new NextResponse(buffer, {

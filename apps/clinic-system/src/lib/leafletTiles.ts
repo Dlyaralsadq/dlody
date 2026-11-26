@@ -1,54 +1,56 @@
 /**
  * Tile-layer helpers for Leaflet maps.
  *
- * "auto"     → OSM proxied through tabibee.com (works everywhere: browser/WebView/Electron)
- * "satellite" → ESRI World Imagery (free, CORS-enabled, works in all WebViews)
- * "hybrid"   → ESRI imagery + CartoDB labels overlay
- * "terrain"  → ESRI World Topo Map
+ * All tiles are proxied through /api/tiles so they work in WebView & Electron.
+ *
+ * "auto"      → CartoDB Voyager  (modern colourful road map — industry standard)
+ * "satellite" → ESRI World Imagery  (satellite, with CartoDB Voyager fallback)
+ * "hybrid"    → ESRI Imagery + CartoDB labels overlay
+ * "terrain"   → ESRI World Topo Map (with CartoDB Voyager fallback)
  */
 
 import type { TileLayer as LeafletTileLayer } from "leaflet";
 
 export type LeafletModule = typeof import("leaflet");
-export type LeafletMap = import("leaflet").Map;
+export type LeafletMap   = import("leaflet").Map;
 
-/** auto = roadmap | satellite | hybrid | terrain */
 export type MapDisplayStyle = "auto" | "satellite" | "hybrid" | "terrain";
 
 const STYLE_CLASS: Record<MapDisplayStyle, string> = {
-  auto: "map-style-auto",
+  auto:      "map-style-auto",
   satellite: "map-style-satellite",
-  hybrid: "map-style-hybrid",
-  terrain: "map-style-terrain",
+  hybrid:    "map-style-hybrid",
+  terrain:   "map-style-terrain",
 };
 
-/** Tile-loading background color while tiles arrive. */
+/** Tile background colour while loading — matches each provider's paper colour. */
 const STYLE_FILL: Record<MapDisplayStyle, string> = {
-  auto: "#f2efe9",
-  satellite: "#8d8680",
-  hybrid: "#8d8680",
-  terrain: "#e4dcc4",
+  auto:      "#f4f1ec",   // CartoDB Voyager cream
+  satellite: "#2a2724",   // dark earth tone
+  hybrid:    "#2a2724",
+  terrain:   "#e8e0d4",   // ESRI Topo light tan
 };
 
-/** Common performance options — reduce tile requests while animating. */
+/** Performance options — minimise tile requests during animation on mobile. */
 const PERF_OPTS = {
-  maxZoom: 19,
-  maxNativeZoom: 19,
-  minZoom: 3,
-  tileSize: 256,
-  detectRetina: false,
-  updateWhenIdle: true,       // only load tiles once the map stops moving
-  updateWhenZooming: false,   // no tile requests during zoom animation
-  updateInterval: 100,
-  keepBuffer: 8,              // buffer 8 extra tile rows/cols around the viewport
+  maxZoom:          19,
+  maxNativeZoom:    19,
+  minZoom:          3,
+  tileSize:         256,
+  detectRetina:     false,
+  updateWhenIdle:   true,       // load tiles only after map stops moving
+  updateWhenZooming: false,     // no requests during zoom animation
+  updateInterval:   150,
+  keepBuffer:       6,
+  crossOrigin:      false as const,
 } as const;
 
-/** Proxied OSM tiles — same-origin, works in all environments. */
-const OSM_URL = "/api/tiles/{z}/{x}/{y}.png";
+/** Proxy base — all tiles go through the same origin */
+const PROXY = "/api/tiles";
 
 function markMapStyle(map: LeafletMap, style: MapDisplayStyle) {
   const container = map.getContainer();
-  Object.values(STYLE_CLASS).forEach((name) => container.classList.remove(name));
+  Object.values(STYLE_CLASS).forEach((c) => container.classList.remove(c));
   container.classList.add(STYLE_CLASS[style]);
   container.style.setProperty("background", STYLE_FILL[style], "important");
 }
@@ -59,65 +61,56 @@ export function isArabicLocale(locale: string): boolean {
 
 /**
  * Returns one or two tile layers for the requested style.
- * ALL tiles are proxied through /api/tiles so they work in WebView & Electron.
- * "hybrid" returns [imagery, labels] — both must be added to the map.
+ * "hybrid" returns [imagery, labels] — both layers must be added to the map.
  */
 function createTileLayers(
   L: LeafletModule,
   _locale: string,
   style: MapDisplayStyle = "auto"
 ): LeafletTileLayer[] {
-  if (style === "auto") {
-    return [
-      L.tileLayer(OSM_URL, {
-        ...PERF_OPTS,
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      }),
-    ];
-  }
-
   if (style === "satellite") {
-    // Proxied ESRI World Imagery — same-origin, works in all WebViews
     return [
-      L.tileLayer("/api/tiles/{z}/{x}/{y}.png?s=satellite", {
+      L.tileLayer(`${PROXY}/{z}/{x}/{y}.png?s=satellite`, {
         ...PERF_OPTS,
-        attribution: "Tiles &copy; Esri",
+        attribution: "Imagery &copy; <a href='https://www.esri.com'>Esri</a>",
       }),
     ];
   }
 
   if (style === "hybrid") {
     return [
-      // base: ESRI satellite imagery (proxied)
-      L.tileLayer("/api/tiles/{z}/{x}/{y}.png?s=satellite", {
+      L.tileLayer(`${PROXY}/{z}/{x}/{y}.png?s=satellite`, {
         ...PERF_OPTS,
-        attribution: "Tiles &copy; Esri",
+        attribution: "Imagery &copy; Esri",
       }),
-      // overlay: CartoDB labels only (proxied)
-      L.tileLayer("/api/tiles/{z}/{x}/{y}.png?s=labels", {
+      L.tileLayer(`${PROXY}/{z}/{x}/{y}.png?s=labels`, {
         ...PERF_OPTS,
-        opacity: 0.9,
+        opacity: 0.95,
         pane: "overlayPane",
       }),
     ];
   }
 
   if (style === "terrain") {
-    // Proxied ESRI World Topo Map
     return [
-      L.tileLayer("/api/tiles/{z}/{x}/{y}.png?s=terrain", {
+      L.tileLayer(`${PROXY}/{z}/{x}/{y}.png?s=terrain`, {
         ...PERF_OPTS,
-        attribution: "Tiles &copy; Esri",
+        attribution: "Tiles &copy; <a href='https://www.esri.com'>Esri</a>",
       }),
     ];
   }
 
-  // fallback
-  return [L.tileLayer(OSM_URL, { ...PERF_OPTS })];
+  // Default "auto" — CartoDB Voyager (modern, clean, free, no API key)
+  return [
+    L.tileLayer(`${PROXY}/{z}/{x}/{y}.png`, {
+      ...PERF_OPTS,
+      attribution:
+        '&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    }),
+  ];
 }
 
-/** Replace the current tile layers with layers for the chosen style. */
+/** Replace current tile layers with layers for the chosen style. */
 export function setMapDisplayStyle(
   map: LeafletMap,
   currentLayers: LeafletTileLayer[],
@@ -143,10 +136,7 @@ export function applyHighQualityTiles(
   return setMapDisplayStyle(map, [], L, locale, style);
 }
 
-/**
- * @deprecated Use setMapDisplayStyle / createTileLayers instead.
- * Returns only the first (base) layer.
- */
+/** @deprecated use setMapDisplayStyle / createTileLayers instead */
 export function createGoogleTileLayer(
   L: LeafletModule,
   locale: string,
@@ -157,37 +147,36 @@ export function createGoogleTileLayer(
 
 /** Leaflet map constructor defaults — tuned for smooth mobile panning. */
 export const MAP_DEFAULTS = {
-  maxZoom: 19,
-  minZoom: 3,
-  zoomSnap: 1,              // snap to whole zoom levels → fewer tile requests
-  zoomDelta: 1,
+  maxZoom:            19,
+  minZoom:            3,
+  zoomSnap:           1,
+  zoomDelta:          1,
   wheelPxPerZoomLevel: 60,
-  wheelDebounceTime: 40,
-  fadeAnimation: true,
-  zoomAnimation: true,
+  wheelDebounceTime:  40,
+  fadeAnimation:      true,
+  zoomAnimation:      true,
   markerZoomAnimation: true,
-  inertia: true,
+  inertia:            true,
   inertiaDeceleration: 2000,
-  easeLinearity: 0.2,
-  preferCanvas: true,       // use <canvas> for vector layers — faster on mobile
+  easeLinearity:      0.2,
+  preferCanvas:       true,
 } as const;
 
 export const MAP_REFRESH_MS = 4_000;
 
 export function getMapPreconnectHosts(_locale = "ar"): string[] {
-  // ESRI domains used by satellite / hybrid / terrain
   return [
-    "https://server.arcgisonline.com",
     "https://a.basemaps.cartocdn.com",
+    "https://server.arcgisonline.com",
   ];
 }
 
 export function getMapStyleLabel(style: MapDisplayStyle, ar: boolean): string {
   const labels: Record<MapDisplayStyle, { ar: string; en: string }> = {
-    auto: { ar: "خرائط", en: "Map" },
-    satellite: { ar: "قمر صناعي", en: "Satellite" },
-    hybrid: { ar: "هجين", en: "Hybrid" },
-    terrain: { ar: "تضاريس", en: "Terrain" },
+    auto:      { ar: "خرائط",       en: "Map"       },
+    satellite: { ar: "قمر صناعي",   en: "Satellite" },
+    hybrid:    { ar: "هجين",        en: "Hybrid"    },
+    terrain:   { ar: "تضاريس",     en: "Terrain"   },
   };
   return ar ? labels[style].ar : labels[style].en;
 }
