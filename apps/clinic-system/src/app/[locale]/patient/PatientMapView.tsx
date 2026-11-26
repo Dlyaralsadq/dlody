@@ -1,5 +1,8 @@
 "use client";
 
+// MapLibre GL CSS — imported here (not via globals.css) to skip Lightning-CSS
+// data-URI reprocessing which can crash the Tailwind v4 build.
+import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import {

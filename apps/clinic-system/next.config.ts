@@ -59,11 +59,11 @@ const securityHeaders: { key: string; value: string }[] = [
       "default-src 'self'",
       isProd ? "script-src 'self' 'unsafe-inline'" : "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com",
-      "font-src 'self' data: https://fonts.gstatic.com",
+      "font-src 'self' data: https://fonts.gstatic.com https://fonts.openmaptiles.org",
       "img-src 'self' data: blob: https:",
       isProd
-        ? "connect-src 'self' https://nominatim.openstreetmap.org https://translate.googleapis.com https://api.mymemory.translated.net"
-        : "connect-src 'self' ws: wss: http://localhost:* http://127.0.0.1:* https://nominatim.openstreetmap.org https://translate.googleapis.com https://api.mymemory.translated.net",
+        ? "connect-src 'self' https://nominatim.openstreetmap.org https://translate.googleapis.com https://api.mymemory.translated.net https://tiles.openfreemap.org https://fonts.openmaptiles.org https://api.mapbox.com"
+        : "connect-src 'self' ws: wss: http://localhost:* http://127.0.0.1:* https://nominatim.openstreetmap.org https://translate.googleapis.com https://api.mymemory.translated.net https://tiles.openfreemap.org https://fonts.openmaptiles.org https://api.mapbox.com",
       "frame-ancestors 'self'",
       "base-uri 'self'",
       "form-action 'self'",
@@ -82,7 +82,7 @@ if (isProd) {
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
-  transpilePackages: ["@iraq-clinic/database"],
+  transpilePackages: ["@iraq-clinic/database", "maplibre-gl"],
   allowedDevOrigins: getDevOrigins(),
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
